@@ -6,6 +6,12 @@ This is useful when you are about to deploy a new service and want a quick visua
 
 ---
 
+## Screenshot
+
+![Occupied Ports Widget](assets/occupied-ports-widget.jpg)
+
+---
+
 ## Features
 
 - Dynamic port discovery from running Docker containers
