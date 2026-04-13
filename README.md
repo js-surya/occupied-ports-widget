@@ -63,6 +63,8 @@ Helper API:
 
 - `GET /health`
 - `GET /ports`
+- `GET /check?port=8088`
+- `GET /check-ui` (simple HTML port checker form)
 
 Local test:
 
@@ -107,6 +109,7 @@ Expected:
 
 - `/health` returns `{"ok":true}`
 - `/ports` returns JSON with `ok`, `count`, and `items`
+- `/check?port=8088` returns occupancy status for that exact port
 
 ### 5) Add widget to Glance
 
@@ -128,6 +131,22 @@ curl http://127.0.0.1:8789/ports
 ```
 
 If Glance cannot reach `http://host.docker.internal:8789/ports`, replace it with a reachable host address for your Docker setup.
+
+---
+
+## Port search/check endpoint
+
+Check one port via API:
+
+```bash
+curl "http://127.0.0.1:8789/check?port=8088"
+```
+
+Open browser form:
+
+```bash
+http://127.0.0.1:8789/check-ui
+```
 
 ---
 

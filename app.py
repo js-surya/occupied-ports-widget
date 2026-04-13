@@ -1,7 +1,7 @@
 import os
 import time
 import threading
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template_string
 import requests
 
 app = Flask(__name__)
@@ -147,23 +147,16 @@ def set_security_headers(resp):
     return resp
 
 
-@app.get('/ports')
-def ports():
-    if not _authorized():
-        return jsonify({'ok': False, 'error': 'unauthorized', 'count': 0, 'items': []}), 401
-
-    if not _check_rate_limit():
-        return jsonify({'ok': False, 'error': 'rate limit exceeded', 'count': 0, 'items': []}), 429
-
+def _get_payload():
     now = time.time()
     if _CACHE['payload'] is not None and (now - _CACHE['ts']) < CACHE_SECONDS:
-        return jsonify(_CACHE['payload'])
+        return _CACHE['payload']
 
     try:
         payload = _fetch_ports()
         _CACHE['payload'] = payload
         _CACHE['ts'] = now
-        return jsonify(payload)
+        return payload
     except Exception as e:
         payload = {
             'ok': False,
@@ -177,7 +170,115 @@ def ports():
         _CACHE['payload'] = payload
         _CACHE['ts'] = now
         app.logger.exception('ports endpoint failed')
-        return jsonify(payload)
+        return payload
+
+
+@app.get('/ports')
+def ports():
+    if not _authorized():
+        return jsonify({'ok': False, 'error': 'unauthorized', 'count': 0, 'items': []}), 401
+
+    if not _check_rate_limit():
+        return jsonify({'ok': False, 'error': 'rate limit exceeded', 'count': 0, 'items': []}), 429
+
+    return jsonify(_get_payload())
+
+
+@app.get('/check')
+def check_port():
+    if not _authorized():
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 401
+
+    if not _check_rate_limit():
+        return jsonify({'ok': False, 'error': 'rate limit exceeded'}), 429
+
+    port_raw = request.args.get('port', '').strip()
+    if not port_raw.isdigit():
+        return jsonify({'ok': False, 'error': 'invalid port'}), 400
+
+    port = int(port_raw)
+    if port < 1 or port > 65535:
+        return jsonify({'ok': False, 'error': 'port out of range'}), 400
+
+    payload = _get_payload()
+    items = payload.get('items', []) if payload.get('ok') else []
+    found = next((i for i in items if int(i.get('port', -1)) == port), None)
+
+    return jsonify({
+        'ok': True,
+        'port': port,
+        'occupied': found is not None,
+        'reserved': bool(found.get('reserved')) if found else (port in RESERVED_PORTS),
+        'reserved_label': (found.get('reserved_label') if found else RESERVED_PORTS.get(port, '')),
+        'url': (found.get('url') if found else f'{LINK_SCHEME}://{LINK_HOST}:{port}'),
+    })
+
+
+@app.get('/check-ui')
+def check_port_ui():
+    port_raw = request.args.get('port', '').strip()
+    result = None
+    error = ''
+
+    if port_raw:
+        if not port_raw.isdigit():
+            error = 'Enter a valid numeric port (1-65535).'
+        else:
+            port = int(port_raw)
+            if port < 1 or port > 65535:
+                error = 'Port must be between 1 and 65535.'
+            else:
+                payload = _get_payload()
+                items = payload.get('items', []) if payload.get('ok') else []
+                found = next((i for i in items if int(i.get('port', -1)) == port), None)
+                result = {
+                    'port': port,
+                    'occupied': found is not None,
+                    'url': (found.get('url') if found else f'{LINK_SCHEME}://{LINK_HOST}:{port}'),
+                }
+
+    html = """
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>Port Check</title>
+      <style>
+        body { font-family: Inter, system-ui, sans-serif; max-width: 540px; margin: 2rem auto; padding: 0 1rem; background: #0b0d10; color: #e8edf4; }
+        .card { border: 1px solid #2a2f36; border-radius: 10px; padding: 1rem; background: #12161b; }
+        input, button { font-size: 1rem; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px solid #2f3640; background: #0e1217; color: #e8edf4; }
+        button { cursor: pointer; margin-left: 0.4rem; }
+        .ok { color: #66d17a; }
+        .bad { color: #ff6b6b; }
+        a { color: #82b4ff; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h3 style="margin-top:0;">Check Port Availability</h3>
+        <form method="get" action="/check-ui">
+          <input type="number" name="port" min="1" max="65535" placeholder="Enter port" value="{{ port_raw }}" required>
+          <button type="submit">Check</button>
+        </form>
+
+        {% if error %}
+          <p class="bad">{{ error }}</p>
+        {% endif %}
+
+        {% if result %}
+          {% if result.occupied %}
+            <p class="bad"><strong>Port {{ result.port }} is occupied.</strong></p>
+            <p><a href="{{ result.url }}" target="_blank" rel="noreferrer">Open {{ result.url }}</a></p>
+          {% else %}
+            <p class="ok"><strong>Port {{ result.port }} is free.</strong></p>
+          {% endif %}
+        {% endif %}
+      </div>
+    </body>
+    </html>
+    """
+    return render_template_string(html, port_raw=port_raw, result=result, error=error)
 
 
 @app.get('/health')
