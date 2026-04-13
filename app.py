@@ -15,6 +15,7 @@ SORT_MODE = os.getenv('SORT_MODE', 'asc').lower()  # asc | desc | recent
 SHOW_SOURCE = os.getenv('SHOW_SOURCE', 'false').lower() == 'true'
 LINK_SCHEME = os.getenv('LINK_SCHEME', 'http')
 LINK_HOST = os.getenv('LINK_HOST', 'localhost')
+PUBLIC_BASE_URL = os.getenv('PUBLIC_BASE_URL', '').rstrip('/')
 
 AUTH_ENABLED = os.getenv('AUTH_ENABLED', 'false').lower() == 'true'
 WIDGET_TOKEN = os.getenv('WIDGET_TOKEN', '')
@@ -142,10 +143,8 @@ def _fetch_ports():
 @app.after_request
 def set_security_headers(resp):
     resp.headers['X-Content-Type-Options'] = 'nosniff'
-    # check-fragment is rendered into an internal iframe inside /widget.
-    if request.path == '/check-fragment':
-      resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    else:
+    # check-fragment may be framed cross-origin from Glance page.
+    if request.path != '/check-fragment':
       resp.headers['X-Frame-Options'] = 'DENY'
     resp.headers['Referrer-Policy'] = 'no-referrer'
     return resp
@@ -264,6 +263,8 @@ def widget():
         else:
             result = {'error': 'Enter a valid port (1-65535).'}
 
+    base_url = PUBLIC_BASE_URL or f"{request.scheme}://{request.host}"
+
     html = """
     <!doctype html>
     <html>
@@ -329,7 +330,7 @@ def widget():
         <div class="status">{{ payload.count }} ports · sorted {{ payload.sort_mode }} · range {{ payload.min_port }}-{{ payload.max_port }}</div>
       {% endif %}
 
-      <form class="row" method="get" action="/check-fragment" target="port-check-result-frame">
+      <form class="row" method="get" action="{{ base_url }}/check-fragment" target="port-check-result-frame">
         <input name="port" type="number" min="1" max="65535" placeholder="Check port" value="{{ port_raw }}" required />
         <button type="submit">Check</button>
       </form>
@@ -342,7 +343,7 @@ def widget():
     </body>
     </html>
     """
-    return render_template_string(html, payload=payload, items=items, result=result, port_raw=port_raw)
+    return render_template_string(html, payload=payload, items=items, result=result, port_raw=port_raw, base_url=base_url)
 
 
 @app.get('/check-ui')

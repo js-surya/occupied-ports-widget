@@ -1,6 +1,6 @@
 services:
   occupied-ports-docker-proxy:
-    image: tecnativa/docker-socket-proxy:0.4.1
+    image: tecnativa/docker-socket-proxy:latest
     container_name: occupied-ports-docker-proxy
     environment:
       CONTAINERS: 1
@@ -30,6 +30,7 @@ services:
       SHOW_SOURCE: false
       LINK_SCHEME: http
       LINK_HOST: helbuntu.ghost-hadar.ts.net
+      PUBLIC_BASE_URL: https://helbuntu.ghost-hadar.ts.net:8789
       AUTH_ENABLED: false
       WIDGET_TOKEN:
       DEBUG_ERRORS: false
