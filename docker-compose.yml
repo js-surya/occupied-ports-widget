@@ -12,6 +12,16 @@ services:
   occupied-ports-widget:
     build: .
     container_name: occupied-ports-widget
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 100
+    mem_limit: 128m
+    cpus: 0.50
     environment:
       CACHE_SECONDS: 5
       MIN_PORT: 1
@@ -19,7 +29,12 @@ services:
       SORT_MODE: asc
       SHOW_SOURCE: false
       LINK_SCHEME: http
-      LINK_HOST: 127.0.0.1
+      LINK_HOST: helbuntu.ghost-hadar.ts.net
+      AUTH_ENABLED: false
+      WIDGET_TOKEN:
+      DEBUG_ERRORS: false
+      RATE_LIMIT_PER_MINUTE: 120
+      TRUST_PROXY: false
     ports:
       - "8789:8789"
     depends_on:

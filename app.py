@@ -1,6 +1,7 @@
 import os
 import time
-from flask import Flask, jsonify
+import threading
+from flask import Flask, jsonify, request
 import requests
 
 app = Flask(__name__)
@@ -14,6 +15,12 @@ SORT_MODE = os.getenv('SORT_MODE', 'asc').lower()  # asc | desc | recent
 SHOW_SOURCE = os.getenv('SHOW_SOURCE', 'false').lower() == 'true'
 LINK_SCHEME = os.getenv('LINK_SCHEME', 'http')
 LINK_HOST = os.getenv('LINK_HOST', 'localhost')
+
+AUTH_ENABLED = os.getenv('AUTH_ENABLED', 'false').lower() == 'true'
+WIDGET_TOKEN = os.getenv('WIDGET_TOKEN', '')
+DEBUG_ERRORS = os.getenv('DEBUG_ERRORS', 'false').lower() == 'true'
+TRUST_PROXY = os.getenv('TRUST_PROXY', 'false').lower() == 'true'
+RATE_LIMIT_PER_MINUTE = int(os.getenv('RATE_LIMIT_PER_MINUTE', '120'))
 
 RESERVED_PORTS = {
     22: 'SSH',
@@ -29,6 +36,9 @@ _CACHE = {'ts': 0.0, 'payload': None}
 _PORT_FIRST_SEEN = {}
 _SEQ = 0
 
+_RATE = {}
+_RATE_LOCK = threading.Lock()
+
 
 def _sort_items(items):
     if SORT_MODE == 'desc':
@@ -36,6 +46,43 @@ def _sort_items(items):
     if SORT_MODE == 'recent':
         return sorted(items, key=lambda x: x.get('first_seen_order', 0), reverse=True)
     return sorted(items, key=lambda x: x['port'])
+
+
+def _client_ip():
+    if TRUST_PROXY:
+        xff = request.headers.get('X-Forwarded-For', '')
+        if xff:
+            return xff.split(',')[0].strip()
+    return request.remote_addr or 'unknown'
+
+
+def _check_rate_limit():
+    ip = _client_ip()
+    now = int(time.time())
+    window = now // 60
+
+    with _RATE_LOCK:
+        entry = _RATE.get(ip)
+        if not entry or entry['window'] != window:
+            _RATE[ip] = {'window': window, 'count': 1}
+            return True
+
+        entry['count'] += 1
+        if entry['count'] > RATE_LIMIT_PER_MINUTE:
+            return False
+
+    return True
+
+
+def _authorized():
+    if not AUTH_ENABLED:
+        return True
+
+    if not WIDGET_TOKEN:
+        return False
+
+    token = request.headers.get('X-Widget-Token', '')
+    return token == WIDGET_TOKEN
 
 
 def _fetch_ports():
@@ -81,7 +128,7 @@ def _fetch_ports():
 
     items = _sort_items(items)
 
-    payload = {
+    return {
         'ok': True,
         'error': '',
         'sort_mode': SORT_MODE,
@@ -90,11 +137,24 @@ def _fetch_ports():
         'count': len(items),
         'items': items,
     }
-    return payload
+
+
+@app.after_request
+def set_security_headers(resp):
+    resp.headers['X-Content-Type-Options'] = 'nosniff'
+    resp.headers['X-Frame-Options'] = 'DENY'
+    resp.headers['Referrer-Policy'] = 'no-referrer'
+    return resp
 
 
 @app.get('/ports')
 def ports():
+    if not _authorized():
+        return jsonify({'ok': False, 'error': 'unauthorized', 'count': 0, 'items': []}), 401
+
+    if not _check_rate_limit():
+        return jsonify({'ok': False, 'error': 'rate limit exceeded', 'count': 0, 'items': []}), 429
+
     now = time.time()
     if _CACHE['payload'] is not None and (now - _CACHE['ts']) < CACHE_SECONDS:
         return jsonify(_CACHE['payload'])
@@ -107,7 +167,7 @@ def ports():
     except Exception as e:
         payload = {
             'ok': False,
-            'error': str(e),
+            'error': str(e) if DEBUG_ERRORS else 'temporarily unavailable',
             'sort_mode': SORT_MODE,
             'min_port': MIN_PORT,
             'max_port': MAX_PORT,
@@ -116,6 +176,7 @@ def ports():
         }
         _CACHE['payload'] = payload
         _CACHE['ts'] = now
+        app.logger.exception('ports endpoint failed')
         return jsonify(payload)
 
 

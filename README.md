@@ -124,13 +124,22 @@ Environment variables (optional):
 - `SHOW_SOURCE` (`true|false`, default: `false`)
 - `LINK_SCHEME` (default: `http`)
 - `LINK_HOST` (default: `127.0.0.1`)
+- `AUTH_ENABLED` (`true|false`, default: `false`)
+- `WIDGET_TOKEN` (required when `AUTH_ENABLED=true`)
+- `RATE_LIMIT_PER_MINUTE` (default: `120`)
+- `DEBUG_ERRORS` (`true|false`, default: `false`)
+- `TRUST_PROXY` (`true|false`, default: `false`)
 
 ---
 
 ## Security notes
 
 - Docker socket access is sensitive. This project uses [`tecnativa/docker-socket-proxy`](https://github.com/Tecnativa/docker-socket-proxy) with minimal allowed scope (`CONTAINERS=1`, `POST=0`).
-- Keep this service private (tailnet/private network), not publicly exposed.
+- Container hardening defaults are enabled: non-root runtime, read-only filesystem, `no-new-privileges`, dropped Linux capabilities, memory/CPU/pid limits.
+- Optional API token auth is supported via `AUTH_ENABLED=true` + `WIDGET_TOKEN` and request header `X-Widget-Token`.
+- Basic per-IP rate limiting is enabled (configurable via `RATE_LIMIT_PER_MINUTE`).
+- Error responses are sanitized by default (`DEBUG_ERRORS=false`) to avoid leaking internals.
+- Recommended for public exposure: place behind reverse proxy + TLS + IP allowlist and enable auth token.
 
 ---
 
