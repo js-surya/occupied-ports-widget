@@ -142,7 +142,11 @@ def _fetch_ports():
 @app.after_request
 def set_security_headers(resp):
     resp.headers['X-Content-Type-Options'] = 'nosniff'
-    resp.headers['X-Frame-Options'] = 'DENY'
+    # check-fragment is rendered into an internal iframe inside /widget.
+    if request.path == '/check-fragment':
+      resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    else:
+      resp.headers['X-Frame-Options'] = 'DENY'
     resp.headers['Referrer-Policy'] = 'no-referrer'
     return resp
 
