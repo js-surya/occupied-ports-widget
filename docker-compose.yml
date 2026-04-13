@@ -16,4 +16,10 @@ services:
       - "8789:8789"
     depends_on:
       - occupied-ports-docker-proxy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8789/health', timeout=2)"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
     restart: unless-stopped

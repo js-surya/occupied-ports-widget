@@ -17,7 +17,8 @@ This is useful when you are about to deploy a new service and want a quick visua
 - Dynamic port discovery from running Docker containers
 - Deduplicated by **port number** (protocol variants collapsed)
 - Sorted numeric output
-- Lightweight Flask API (`/ports`)
+- Production-oriented runtime (Gunicorn, non-root user, healthcheck)
+- Basic CI with tests + Docker build check (GitHub Actions)
 - Works well with Glance `custom-api` widgets
 
 ---
@@ -114,6 +115,16 @@ Environment variables (optional):
 
 - Docker socket access is sensitive. This project uses [`tecnativa/docker-socket-proxy`](https://github.com/Tecnativa/docker-socket-proxy) with minimal allowed scope (`CONTAINERS=1`, `POST=0`).
 - Keep this service private (tailnet/private network), not publicly exposed.
+
+---
+
+## Development
+
+Run tests locally:
+
+```bash
+pytest -q
+```
 
 ---
 
