@@ -214,71 +214,172 @@ def check_port():
     })
 
 
-@app.get('/check-ui')
-def check_port_ui():
-    port_raw = request.args.get('port', '').strip()
-    result = None
-    error = ''
-
-    if port_raw:
-        if not port_raw.isdigit():
-            error = 'Enter a valid numeric port (1-65535).'
-        else:
-            port = int(port_raw)
-            if port < 1 or port > 65535:
-                error = 'Port must be between 1 and 65535.'
-            else:
-                payload = _get_payload()
-                items = payload.get('items', []) if payload.get('ok') else []
-                found = next((i for i in items if int(i.get('port', -1)) == port), None)
-                result = {
-                    'port': port,
-                    'occupied': found is not None,
-                    'url': (found.get('url') if found else f'{LINK_SCHEME}://{LINK_HOST}:{port}'),
-                }
-
+@app.get('/widget')
+def widget():
     html = """
     <!doctype html>
     <html>
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <title>Port Check</title>
       <style>
-        body { font-family: Inter, system-ui, sans-serif; max-width: 540px; margin: 2rem auto; padding: 0 1rem; background: #0b0d10; color: #e8edf4; }
-        .card { border: 1px solid #2a2f36; border-radius: 10px; padding: 1rem; background: #12161b; }
-        input, button { font-size: 1rem; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px solid #2f3640; background: #0e1217; color: #e8edf4; }
-        button { cursor: pointer; margin-left: 0.4rem; }
-        .ok { color: #66d17a; }
+        :root { color-scheme: light dark; }
+        body { margin: 0; font-family: Inter, system-ui, sans-serif; }
+        .ports-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 0.4rem;
+        }
+        .ports-grid.collapsible .port-chip.hidden {
+          display: none;
+        }
+        .port-chip {
+          text-align: center;
+          padding: 0.28rem 0.2rem;
+          border-radius: 6px;
+          border: 1px solid color-mix(in srgb, var(--color-text-base, #cfd6e1) 16%, transparent);
+          background: color-mix(in srgb, var(--color-widget-background, #11151b) 82%, var(--color-text-base, #cfd6e1) 18%);
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--color-text-base, #e7edf7);
+          opacity: 0.97;
+          transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+        }
+        .port-chip.reserved {
+          border-color: color-mix(in srgb, var(--color-primary, #67b3ff) 42%, transparent);
+          background: color-mix(in srgb, var(--color-widget-background, #11151b) 75%, var(--color-primary, #67b3ff) 25%);
+          color: var(--color-primary, #67b3ff);
+        }
+        .status {
+          margin-top: 0.55rem;
+          font-size: 0.8rem;
+          opacity: 0.8;
+        }
+        .row {
+          margin-top: 0.55rem;
+          display: flex;
+          gap: 0.4rem;
+          align-items: center;
+        }
+        .row input {
+          width: 100%;
+          padding: 0.35rem 0.5rem;
+          border-radius: 6px;
+          border: 1px solid color-mix(in srgb, var(--color-text-base, #cfd6e1) 18%, transparent);
+          background: color-mix(in srgb, var(--color-widget-background, #11151b) 88%, var(--color-text-base, #cfd6e1) 12%);
+          color: var(--color-text-base, #e7edf7);
+        }
+        .row button {
+          padding: 0.35rem 0.6rem;
+          border-radius: 6px;
+          border: 1px solid color-mix(in srgb, var(--color-text-base, #cfd6e1) 20%, transparent);
+          background: color-mix(in srgb, var(--color-widget-background, #11151b) 75%, var(--color-primary, #67b3ff) 25%);
+          color: var(--color-text-base, #e7edf7);
+          cursor: pointer;
+        }
+        .toggle-btn {
+          margin-top: 0.45rem;
+          font-size: 0.78rem;
+          opacity: 0.86;
+          cursor: pointer;
+          user-select: none;
+        }
         .bad { color: #ff6b6b; }
-        a { color: #82b4ff; }
+        .ok { color: #66d17a; }
       </style>
     </head>
     <body>
-      <div class="card">
-        <h3 style="margin-top:0;">Check Port Availability</h3>
-        <form method="get" action="/check-ui">
-          <input type="number" name="port" min="1" max="65535" placeholder="Enter port" value="{{ port_raw }}" required>
-          <button type="submit">Check</button>
-        </form>
-
-        {% if error %}
-          <p class="bad">{{ error }}</p>
-        {% endif %}
-
-        {% if result %}
-          {% if result.occupied %}
-            <p class="bad"><strong>Port {{ result.port }} is occupied.</strong></p>
-            <p><a href="{{ result.url }}" target="_blank" rel="noreferrer">Open {{ result.url }}</a></p>
-          {% else %}
-            <p class="ok"><strong>Port {{ result.port }} is free.</strong></p>
-          {% endif %}
-        {% endif %}
+      <div id="ports"></div>
+      <div class="toggle-btn" id="toggle" style="display:none;">Show more</div>
+      <div class="status" id="meta"></div>
+      <div class="row">
+        <input id="port-input" type="number" min="1" max="65535" placeholder="Check port" />
+        <button id="port-btn" type="button">Check</button>
       </div>
+      <div class="status" id="result"></div>
+
+      <script>
+        let occupied = new Set();
+
+        async function loadPorts() {
+          const res = await fetch('/ports', { cache: 'no-store' });
+          const data = await res.json();
+          const ports = document.getElementById('ports');
+          const meta = document.getElementById('meta');
+          const toggle = document.getElementById('toggle');
+
+          if (!data.ok) {
+            ports.innerHTML = '<div class="bad">Data unavailable</div>';
+            meta.textContent = data.error || 'temporarily unavailable';
+            toggle.style.display = 'none';
+            return;
+          }
+
+          occupied = new Set(data.items.map(i => Number(i.port)));
+          const collapseAfter = 16;
+          const chips = data.items.map((i, idx) => {
+            const hidden = idx >= collapseAfter ? 'hidden' : '';
+            return `<div class="port-chip ${i.reserved ? 'reserved' : ''} ${hidden}" data-idx="${idx}">${i.port}</div>`;
+          }).join('');
+          ports.innerHTML = `<div class="ports-grid collapsible">${chips}</div>`;
+          meta.textContent = `${data.count} ports · sorted ${data.sort_mode} · range ${data.min_port}-${data.max_port}`;
+
+          if (data.items.length > collapseAfter) {
+            let expanded = false;
+            toggle.style.display = 'block';
+            toggle.textContent = 'Show more';
+            toggle.onclick = () => {
+              expanded = !expanded;
+              const hidden = ports.querySelectorAll('.port-chip.hidden');
+              hidden.forEach(el => {
+                el.style.display = expanded ? 'block' : 'none';
+              });
+              toggle.textContent = expanded ? 'Show less' : 'Show more';
+            };
+          } else {
+            toggle.style.display = 'none';
+          }
+        }
+
+        function checkPort() {
+          const input = document.getElementById('port-input');
+          const result = document.getElementById('result');
+          const p = Number(input.value);
+          if (!Number.isInteger(p) || p < 1 || p > 65535) {
+            result.className = 'status bad';
+            result.textContent = 'Enter a valid port (1-65535).';
+            return;
+          }
+
+          if (occupied.has(p)) {
+            result.className = 'status bad';
+            result.textContent = `Port ${p} is occupied`;
+          } else {
+            result.className = 'status ok';
+            result.textContent = `Port ${p} is free`;
+          }
+        }
+
+        document.getElementById('port-btn').addEventListener('click', checkPort);
+        document.getElementById('port-input').addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            checkPort();
+          }
+        });
+
+        loadPorts();
+      </script>
     </body>
     </html>
     """
-    return render_template_string(html, port_raw=port_raw, result=result, error=error)
+    return render_template_string(html)
+
+
+@app.get('/check-ui')
+def check_port_ui():
+    # Legacy endpoint kept for backward compatibility.
+    return widget()
 
 
 @app.get('/health')
