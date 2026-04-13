@@ -300,71 +300,45 @@ def widget():
         <div class="status">{{ payload.count }} ports · sorted {{ payload.sort_mode }} · range {{ payload.min_port }}-{{ payload.max_port }}</div>
       {% endif %}
 
-      <form id="port-check-form" class="row" method="get" action="/widget">
-        <input type="hidden" name="v" value="3" />
-        <input id="port-check-input" name="port" type="number" min="1" max="65535" placeholder="Check port" value="{{ port_raw }}" required />
-        <button id="port-check-btn" type="submit">Check</button>
-      </form>
-
-      <div id="port-check-result" class="status {% if result and result.error %}bad{% elif result and result.occupied %}bad{% elif result %}ok{% endif %}">
-        {% if result %}
-          {% if result.error %}
-            {{ result.error }}
-          {% elif result.occupied %}
-            Port {{ result.port }} is occupied
-          {% else %}
-            Port {{ result.port }} is free
-          {% endif %}
-        {% endif %}
+      <div class="row">
+        <input id="port-check-input" type="number" min="1" max="65535" placeholder="Check port" value="{{ port_raw }}" />
+        <button id="port-check-btn" type="button">Check</button>
       </div>
+
+      <div id="port-check-result" class="status"></div>
 
       <script>
         (() => {
-          const form = document.getElementById('port-check-form');
+          const occupied = new Set([{% for i in items %}{{ i.port }},{% endfor %}]);
           const input = document.getElementById('port-check-input');
           const btn = document.getElementById('port-check-btn');
           const result = document.getElementById('port-check-result');
 
-          if (!form || !input || !btn || !result) return;
+          if (!input || !btn || !result) return;
 
-          form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
+          const runCheck = () => {
             const raw = String(input.value || '').trim();
             const port = Number(raw);
-
             if (!Number.isInteger(port) || port < 1 || port > 65535) {
               result.className = 'status bad';
               result.textContent = 'Enter a valid port (1-65535).';
               return;
             }
 
-            try {
-              btn.disabled = true;
-              btn.textContent = '...';
-
-              const res = await fetch(`/check?port=${encodeURIComponent(raw)}`, { cache: 'no-store' });
-              const data = await res.json();
-
-              if (!res.ok || !data.ok) {
-                result.className = 'status bad';
-                result.textContent = data.error || 'Check failed';
-                return;
-              }
-
-              if (data.occupied) {
-                result.className = 'status bad';
-                result.textContent = `Port ${data.port} is occupied`;
-              } else {
-                result.className = 'status ok';
-                result.textContent = `Port ${data.port} is free`;
-              }
-            } catch {
+            if (occupied.has(port)) {
               result.className = 'status bad';
-              result.textContent = 'Check failed';
-            } finally {
-              btn.disabled = false;
-              btn.textContent = 'Check';
+              result.textContent = `Port ${port} is occupied`;
+            } else {
+              result.className = 'status ok';
+              result.textContent = `Port ${port} is free`;
+            }
+          };
+
+          btn.addEventListener('click', runCheck);
+          input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              runCheck();
             }
           });
         })();
