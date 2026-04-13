@@ -291,7 +291,7 @@ def widget():
       {% else %}
         <div class="ports-grid">
           {% for i in items[:16] %}
-            <div class="port-chip {% if i.reserved %}reserved{% endif %}">{{ i.port }}</div>
+            <a class="port-chip {% if i.reserved %}reserved{% endif %}" href="{{ i.url }}" target="_blank" rel="noreferrer">{{ i.port }}</a>
           {% endfor %}
         </div>
         {% if items|length > 16 %}
@@ -301,6 +301,7 @@ def widget():
       {% endif %}
 
       <form class="row" method="get" action="/widget">
+        <input type="hidden" name="v" value="3" />
         <input name="port" type="number" min="1" max="65535" placeholder="Check port" value="{{ port_raw }}" required />
         <button type="submit">Check</button>
       </form>
