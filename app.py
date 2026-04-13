@@ -23,13 +23,13 @@ def ports():
                 proto = p.get('Type', 'tcp')
                 if not public:
                     continue
-                key = (int(public), str(proto))
-                if key in seen:
+                port = int(public)
+                if port in seen:
                     continue
-                seen.add(key)
-                items.append({'port': int(public), 'proto': str(proto)})
+                seen.add(port)
+                items.append({'port': port, 'proto': str(proto)})
 
-        items.sort(key=lambda x: (x['port'], x['proto']))
+        items.sort(key=lambda x: x['port'])
         return jsonify({'items': items})
     except Exception:
         return jsonify({'items': []})

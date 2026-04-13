@@ -15,7 +15,8 @@ This is useful when you are about to deploy a new service and want a quick visua
 ## Features
 
 - Dynamic port discovery from running Docker containers
-- Deduplicated and sorted output
+- Deduplicated by **port number** (protocol variants collapsed)
+- Sorted numeric output
 - Lightweight Flask API (`/ports`)
 - Works well with Glance `custom-api` widgets
 
@@ -31,7 +32,6 @@ This is useful when you are about to deploy a new service and want a quick visua
 {
   "items": [
     { "port": 53, "proto": "tcp" },
-    { "port": 53, "proto": "udp" },
     { "port": 8088, "proto": "tcp" }
   ]
 }
