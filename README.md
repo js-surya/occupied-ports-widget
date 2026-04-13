@@ -1,5 +1,8 @@
 # Occupied Ports Widget for Glance
 
+![CI](https://github.com/js-surya/occupied-ports-widget/actions/workflows/ci.yml/badge.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
 A tiny helper service that exposes **currently published Docker host ports** as JSON for a Glance `custom-api` widget.
 
 This is useful when you are about to deploy a new service and want a quick visual list of ports already in use.
@@ -71,7 +74,22 @@ curl http://127.0.0.1:8789/ports
 
 ## Glance configuration
 
-Add this widget to your `glance.yml`:
+### 1) Minimal template
+
+```yaml
+- type: custom-api
+  title: Occupied Ports
+  cache: 15s
+  url: http://host.docker.internal:8789/ports
+  template: |
+    <ul class="list">
+      {{ range .JSON.Array "items" }}
+        <li>{{ .Int "port" }}</li>
+      {{ end }}
+    </ul>
+```
+
+### 2) Styled template (dark/light adaptive + clickable)
 
 ```yaml
 - type: custom-api
@@ -106,15 +124,36 @@ Add this widget to your `glance.yml`:
         background: color-mix(in srgb, var(--color-widget-background) 72%, var(--color-primary) 28%);
         border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
       }
+      .port-chip.reserved {
+        border-color: color-mix(in srgb, var(--color-primary) 42%, transparent);
+        background: color-mix(in srgb, var(--color-widget-background) 75%, var(--color-primary) 25%);
+        color: var(--color-primary);
+      }
     </style>
-    <ul class="list ports-grid collapsible-container" data-collapse-after="16">
-      {{ range .JSON.Array "items" }}
-        <li><div class="port-chip">{{ .Int "port" }}</div></li>
-      {{ end }}
-    </ul>
+    {{ if not (.JSON.Bool "ok") }}
+      <div class="color-negative size-h5">Data unavailable</div>
+      <div class="color-subdue">{{ .JSON.String "error" }}</div>
+    {{ else }}
+      <ul class="list ports-grid collapsible-container" data-collapse-after="16">
+        {{ range .JSON.Array "items" }}
+          <li>
+            <a class="port-chip {{ if .Bool "reserved" }}reserved{{ end }}" href="{{ .String "url" }}" target="_blank" rel="noreferrer">
+              {{ .Int "port" }}
+            </a>
+          </li>
+        {{ end }}
+      </ul>
+    {{ end }}
 ```
 
 > If `host.docker.internal` is not reachable in your setup, replace with a reachable host address from inside the Glance container.
+
+---
+
+## Compatibility
+
+- Tested with Linux Docker Engine 29.x
+- Tested with Glance dashboard using `custom-api` widgets
 
 ---
 
@@ -189,6 +228,12 @@ This project was created with AI assistance (OpenClaw + GPT-based coding help) a
 - [`Flask`](https://github.com/pallets/flask) — lightweight Python web framework for the helper API.
 - [`Requests`](https://github.com/psf/requests) — HTTP client used to query Docker API endpoints.
 - [`Glance`](https://github.com/glanceapp/glance) — dashboard that renders this helper via `custom-api` widget.
+
+---
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
 
 ---
 

@@ -1,6 +1,6 @@
 services:
   occupied-ports-docker-proxy:
-    image: tecnativa/docker-socket-proxy:latest
+    image: tecnativa/docker-socket-proxy:0.4.1
     container_name: occupied-ports-docker-proxy
     environment:
       CONTAINERS: 1
