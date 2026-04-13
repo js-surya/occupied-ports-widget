@@ -72,6 +72,65 @@ curl http://127.0.0.1:8789/ports
 
 ---
 
+## Detailed installation
+
+### 1) Clone the repository
+
+```bash
+git clone https://github.com/js-surya/occupied-ports-widget.git
+cd occupied-ports-widget
+```
+
+### 2) Review/update runtime settings
+
+Edit `docker-compose.yml` under `occupied-ports-widget.environment`.
+Most important keys:
+
+- `LINK_HOST` → your server domain/IP used for clickable links
+- `AUTH_ENABLED` / `WIDGET_TOKEN` → required if exposing beyond private tailnet
+- `RATE_LIMIT_PER_MINUTE` → reduce if public-facing (e.g., `30`)
+
+### 3) Start the service
+
+```bash
+docker compose up -d --build
+```
+
+### 4) Verify health and data endpoints
+
+```bash
+curl http://127.0.0.1:8789/health
+curl http://127.0.0.1:8789/ports
+```
+
+Expected:
+
+- `/health` returns `{"ok":true}`
+- `/ports` returns JSON with `ok`, `count`, and `items`
+
+### 5) Add widget to Glance
+
+Use either the **Minimal** or **Styled** template from the next section and paste it into your `glance.yml`.
+
+### 6) Restart Glance
+
+```bash
+docker compose -f /path/to/glance/docker-compose.yml down
+docker compose -f /path/to/glance/docker-compose.yml up -d
+```
+
+### 7) Troubleshooting quick checks
+
+```bash
+docker logs occupied-ports-widget --tail 100
+docker logs occupied-ports-docker-proxy --tail 100
+curl http://127.0.0.1:8789/ports
+```
+
+If Glance cannot reach `http://host.docker.internal:8789/ports`, replace it with a reachable host address for your Docker setup.
+
+---
+
 ## Glance configuration
 
 ### 1) Minimal template
