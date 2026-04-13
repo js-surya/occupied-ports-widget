@@ -16,7 +16,11 @@ This is useful when you are about to deploy a new service and want a quick visua
 
 - Dynamic port discovery from running Docker containers
 - Deduplicated by **port number** (protocol variants collapsed)
-- Sorted numeric output
+- Sorting modes: `asc`, `desc`, `recent`
+- Port range filter (`MIN_PORT`, `MAX_PORT`)
+- Reserved port hints in payload (e.g. 22/53/80/443)
+- Clickable links per port (`LINK_SCHEME://LINK_HOST:port`)
+- Status envelope (`ok`, `error`, `count`) for safer widget rendering
 - Production-oriented runtime (Gunicorn, non-root user, healthcheck)
 - Basic CI with tests + Docker build check (GitHub Actions)
 - Works well with Glance `custom-api` widgets
@@ -31,9 +35,15 @@ This is useful when you are about to deploy a new service and want a quick visua
 
 ```json
 {
+  "ok": true,
+  "error": "",
+  "sort_mode": "asc",
+  "min_port": 1,
+  "max_port": 65535,
+  "count": 2,
   "items": [
-    { "port": 53, "proto": "tcp" },
-    { "port": 8088, "proto": "tcp" }
+    { "port": 53, "proto": "tcp", "url": "http://127.0.0.1:53", "reserved": true, "reserved_label": "DNS" },
+    { "port": 8088, "proto": "tcp", "url": "http://127.0.0.1:8088", "reserved": false, "reserved_label": "" }
   ]
 }
 ```
@@ -108,6 +118,12 @@ Environment variables (optional):
 - `PORT` (default: `8789`)
 - `DOCKER_API` (default: `http://occupied-ports-docker-proxy:2375/containers/json`)
 - `TIMEOUT_SECONDS` (default: `6`)
+- `CACHE_SECONDS` (default: `5`)
+- `MIN_PORT` / `MAX_PORT` (defaults: `1` / `65535`)
+- `SORT_MODE` (`asc` | `desc` | `recent`, default: `asc`)
+- `SHOW_SOURCE` (`true|false`, default: `false`)
+- `LINK_SCHEME` (default: `http`)
+- `LINK_HOST` (default: `127.0.0.1`)
 
 ---
 

@@ -12,6 +12,14 @@ services:
   occupied-ports-widget:
     build: .
     container_name: occupied-ports-widget
+    environment:
+      CACHE_SECONDS: 5
+      MIN_PORT: 1
+      MAX_PORT: 65535
+      SORT_MODE: asc
+      SHOW_SOURCE: false
+      LINK_SCHEME: http
+      LINK_HOST: 127.0.0.1
     ports:
       - "8789:8789"
     depends_on:
