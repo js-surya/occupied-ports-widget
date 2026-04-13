@@ -15,7 +15,6 @@ SORT_MODE = os.getenv('SORT_MODE', 'asc').lower()  # asc | desc | recent
 SHOW_SOURCE = os.getenv('SHOW_SOURCE', 'false').lower() == 'true'
 LINK_SCHEME = os.getenv('LINK_SCHEME', 'http')
 LINK_HOST = os.getenv('LINK_HOST', 'localhost')
-PUBLIC_BASE_URL = os.getenv('PUBLIC_BASE_URL', '').rstrip('/')
 
 AUTH_ENABLED = os.getenv('AUTH_ENABLED', 'false').lower() == 'true'
 WIDGET_TOKEN = os.getenv('WIDGET_TOKEN', '')
@@ -143,9 +142,7 @@ def _fetch_ports():
 @app.after_request
 def set_security_headers(resp):
     resp.headers['X-Content-Type-Options'] = 'nosniff'
-    # check-fragment may be framed cross-origin from Glance page.
-    if request.path != '/check-fragment':
-      resp.headers['X-Frame-Options'] = 'DENY'
+    resp.headers['X-Frame-Options'] = 'DENY'
     resp.headers['Referrer-Policy'] = 'no-referrer'
     return resp
 
@@ -187,61 +184,6 @@ def ports():
     return jsonify(_get_payload())
 
 
-@app.get('/check')
-def check_port():
-    if not _authorized():
-        return jsonify({'ok': False, 'error': 'unauthorized'}), 401
-
-    if not _check_rate_limit():
-        return jsonify({'ok': False, 'error': 'rate limit exceeded'}), 429
-
-    port_raw = request.args.get('port', '').strip()
-    if not port_raw.isdigit():
-        return jsonify({'ok': False, 'error': 'invalid port'}), 400
-
-    port = int(port_raw)
-    if port < 1 or port > 65535:
-        return jsonify({'ok': False, 'error': 'port out of range'}), 400
-
-    payload = _get_payload()
-    items = payload.get('items', []) if payload.get('ok') else []
-    found = next((i for i in items if int(i.get('port', -1)) == port), None)
-
-    return jsonify({
-        'ok': True,
-        'port': port,
-        'occupied': found is not None,
-        'reserved': bool(found.get('reserved')) if found else (port in RESERVED_PORTS),
-        'reserved_label': (found.get('reserved_label') if found else RESERVED_PORTS.get(port, '')),
-        'url': (found.get('url') if found else f'{LINK_SCHEME}://{LINK_HOST}:{port}'),
-    })
-
-
-@app.get('/check-fragment')
-def check_fragment():
-    if not _authorized():
-        return render_template_string('<div style="color:#ff6b6b;font-size:0.82rem;">Unauthorized</div>'), 401
-
-    if not _check_rate_limit():
-        return render_template_string('<div style="color:#ff6b6b;font-size:0.82rem;">Rate limit exceeded</div>'), 429
-
-    port_raw = request.args.get('port', '').strip()
-    if not port_raw.isdigit():
-        return render_template_string('<div style="color:#ff6b6b;font-size:0.82rem;">Enter a valid port (1-65535).</div>')
-
-    port = int(port_raw)
-    if port < 1 or port > 65535:
-        return render_template_string('<div style="color:#ff6b6b;font-size:0.82rem;">Enter a valid port (1-65535).</div>')
-
-    payload = _get_payload()
-    items = payload.get('items', []) if payload.get('ok') else []
-    occupied = any(int(i.get('port', -1)) == port for i in items)
-
-    if occupied:
-        return render_template_string('<div style="color:#ff6b6b;font-size:0.82rem;">Port {{p}} is occupied</div>', p=port)
-    return render_template_string('<div style="color:#66d17a;font-size:0.82rem;">Port {{p}} is free</div>', p=port)
-
-
 @app.get('/widget')
 def widget():
     if not _authorized():
@@ -252,18 +194,6 @@ def widget():
 
     payload = _get_payload()
     items = payload.get('items', []) if payload.get('ok') else []
-
-    port_raw = request.args.get('port', '').strip()
-    result = None
-    if port_raw:
-        if port_raw.isdigit() and 1 <= int(port_raw) <= 65535:
-            p = int(port_raw)
-            found = next((i for i in items if int(i.get('port', -1)) == p), None)
-            result = {'port': p, 'occupied': found is not None}
-        else:
-            result = {'error': 'Enter a valid port (1-65535).'}
-
-    base_url = PUBLIC_BASE_URL or f"{request.scheme}://{request.host}"
 
     html = """
     <!doctype html>
@@ -330,26 +260,10 @@ def widget():
         <div class="status">{{ payload.count }} ports · sorted {{ payload.sort_mode }} · range {{ payload.min_port }}-{{ payload.max_port }}</div>
       {% endif %}
 
-      <form class="row" method="get" action="{{ base_url }}/check-fragment" target="port-check-result-frame">
-        <input name="port" type="number" min="1" max="65535" placeholder="Check port" value="{{ port_raw }}" required />
-        <button type="submit">Check</button>
-      </form>
-
-      <iframe
-        name="port-check-result-frame"
-        title="Port check result"
-        style="margin-top:0.35rem;width:100%;height:1.6rem;border:0;background:transparent;"
-      ></iframe>
     </body>
     </html>
     """
-    return render_template_string(html, payload=payload, items=items, result=result, port_raw=port_raw, base_url=base_url)
-
-
-@app.get('/check-ui')
-def check_port_ui():
-    # Legacy endpoint kept for backward compatibility.
-    return widget()
+    return render_template_string(html, payload=payload, items=items)
 
 
 @app.get('/health')
