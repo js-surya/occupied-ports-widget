@@ -216,6 +216,25 @@ def check_port():
 
 @app.get('/widget')
 def widget():
+    if not _authorized():
+        return render_template_string('<div style="padding:0.5rem;color:#ff6b6b;">Unauthorized</div>'), 401
+
+    if not _check_rate_limit():
+        return render_template_string('<div style="padding:0.5rem;color:#ff6b6b;">Rate limit exceeded</div>'), 429
+
+    payload = _get_payload()
+    items = payload.get('items', []) if payload.get('ok') else []
+
+    port_raw = request.args.get('port', '').strip()
+    result = None
+    if port_raw:
+        if port_raw.isdigit() and 1 <= int(port_raw) <= 65535:
+            p = int(port_raw)
+            found = next((i for i in items if int(i.get('port', -1)) == p), None)
+            result = {'port': p, 'occupied': found is not None}
+        else:
+            result = {'error': 'Enter a valid port (1-65535).'}
+
     html = """
     <!doctype html>
     <html>
@@ -230,9 +249,6 @@ def widget():
           grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 0.4rem;
         }
-        .ports-grid.collapsible .port-chip.hidden {
-          display: none;
-        }
         .port-chip {
           text-align: center;
           padding: 0.28rem 0.2rem;
@@ -243,137 +259,65 @@ def widget():
           font-weight: 600;
           color: var(--color-text-base, #e7edf7);
           opacity: 0.97;
-          transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
         }
         .port-chip.reserved {
           border-color: color-mix(in srgb, var(--color-primary, #67b3ff) 42%, transparent);
           background: color-mix(in srgb, var(--color-widget-background, #11151b) 75%, var(--color-primary, #67b3ff) 25%);
           color: var(--color-primary, #67b3ff);
         }
-        .status {
-          margin-top: 0.55rem;
-          font-size: 0.8rem;
-          opacity: 0.8;
-        }
-        .row {
-          margin-top: 0.55rem;
-          display: flex;
-          gap: 0.4rem;
-          align-items: center;
-        }
+        .status { margin-top: 0.55rem; font-size: 0.8rem; opacity: 0.8; }
+        .row { margin-top: 0.55rem; display: flex; gap: 0.4rem; align-items: center; }
         .row input {
-          width: 100%;
-          padding: 0.35rem 0.5rem;
-          border-radius: 6px;
+          width: 100%; padding: 0.35rem 0.5rem; border-radius: 6px;
           border: 1px solid color-mix(in srgb, var(--color-text-base, #cfd6e1) 18%, transparent);
           background: color-mix(in srgb, var(--color-widget-background, #11151b) 88%, var(--color-text-base, #cfd6e1) 12%);
           color: var(--color-text-base, #e7edf7);
         }
         .row button {
-          padding: 0.35rem 0.6rem;
-          border-radius: 6px;
+          padding: 0.35rem 0.6rem; border-radius: 6px;
           border: 1px solid color-mix(in srgb, var(--color-text-base, #cfd6e1) 20%, transparent);
           background: color-mix(in srgb, var(--color-widget-background, #11151b) 75%, var(--color-primary, #67b3ff) 25%);
-          color: var(--color-text-base, #e7edf7);
-          cursor: pointer;
+          color: var(--color-text-base, #e7edf7); cursor: pointer;
         }
-        .toggle-btn {
-          margin-top: 0.45rem;
-          font-size: 0.78rem;
-          opacity: 0.86;
-          cursor: pointer;
-          user-select: none;
-        }
+        .toggle { margin-top: 0.45rem; font-size: 0.78rem; opacity: 0.86; }
         .bad { color: #ff6b6b; }
         .ok { color: #66d17a; }
       </style>
     </head>
     <body>
-      <div id="ports"></div>
-      <div class="toggle-btn" id="toggle" style="display:none;">Show more</div>
-      <div class="status" id="meta"></div>
-      <div class="row">
-        <input id="port-input" type="number" min="1" max="65535" placeholder="Check port" />
-        <button id="port-btn" type="button">Check</button>
-      </div>
-      <div class="status" id="result"></div>
+      {% if not payload.ok %}
+        <div class="bad">Data unavailable</div>
+        <div class="status">{{ payload.error }}</div>
+      {% else %}
+        <div class="ports-grid">
+          {% for i in items[:16] %}
+            <div class="port-chip {% if i.reserved %}reserved{% endif %}">{{ i.port }}</div>
+          {% endfor %}
+        </div>
+        {% if items|length > 16 %}
+          <div class="toggle">Showing first 16 of {{ items|length }} ports</div>
+        {% endif %}
+        <div class="status">{{ payload.count }} ports · sorted {{ payload.sort_mode }} · range {{ payload.min_port }}-{{ payload.max_port }}</div>
+      {% endif %}
 
-      <script>
-        let occupied = new Set();
+      <form class="row" method="get" action="/widget">
+        <input name="port" type="number" min="1" max="65535" placeholder="Check port" value="{{ port_raw }}" required />
+        <button type="submit">Check</button>
+      </form>
 
-        async function loadPorts() {
-          const res = await fetch('/ports', { cache: 'no-store' });
-          const data = await res.json();
-          const ports = document.getElementById('ports');
-          const meta = document.getElementById('meta');
-          const toggle = document.getElementById('toggle');
-
-          if (!data.ok) {
-            ports.innerHTML = '<div class="bad">Data unavailable</div>';
-            meta.textContent = data.error || 'temporarily unavailable';
-            toggle.style.display = 'none';
-            return;
-          }
-
-          occupied = new Set(data.items.map(i => Number(i.port)));
-          const collapseAfter = 16;
-          const chips = data.items.map((i, idx) => {
-            const hidden = idx >= collapseAfter ? 'hidden' : '';
-            return `<div class="port-chip ${i.reserved ? 'reserved' : ''} ${hidden}" data-idx="${idx}">${i.port}</div>`;
-          }).join('');
-          ports.innerHTML = `<div class="ports-grid collapsible">${chips}</div>`;
-          meta.textContent = `${data.count} ports · sorted ${data.sort_mode} · range ${data.min_port}-${data.max_port}`;
-
-          if (data.items.length > collapseAfter) {
-            let expanded = false;
-            toggle.style.display = 'block';
-            toggle.textContent = 'Show more';
-            toggle.onclick = () => {
-              expanded = !expanded;
-              const hidden = ports.querySelectorAll('.port-chip.hidden');
-              hidden.forEach(el => {
-                el.style.display = expanded ? 'block' : 'none';
-              });
-              toggle.textContent = expanded ? 'Show less' : 'Show more';
-            };
-          } else {
-            toggle.style.display = 'none';
-          }
-        }
-
-        function checkPort() {
-          const input = document.getElementById('port-input');
-          const result = document.getElementById('result');
-          const p = Number(input.value);
-          if (!Number.isInteger(p) || p < 1 || p > 65535) {
-            result.className = 'status bad';
-            result.textContent = 'Enter a valid port (1-65535).';
-            return;
-          }
-
-          if (occupied.has(p)) {
-            result.className = 'status bad';
-            result.textContent = `Port ${p} is occupied`;
-          } else {
-            result.className = 'status ok';
-            result.textContent = `Port ${p} is free`;
-          }
-        }
-
-        document.getElementById('port-btn').addEventListener('click', checkPort);
-        document.getElementById('port-input').addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            checkPort();
-          }
-        });
-
-        loadPorts();
-      </script>
+      {% if result %}
+        {% if result.error %}
+          <div class="status bad">{{ result.error }}</div>
+        {% elif result.occupied %}
+          <div class="status bad">Port {{ result.port }} is occupied</div>
+        {% else %}
+          <div class="status ok">Port {{ result.port }} is free</div>
+        {% endif %}
+      {% endif %}
     </body>
     </html>
     """
-    return render_template_string(html)
+    return render_template_string(html, payload=payload, items=items, result=result, port_raw=port_raw)
 
 
 @app.get('/check-ui')
