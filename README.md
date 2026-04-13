@@ -139,6 +139,23 @@ Environment variables (optional):
 
 ---
 
+## Public-safe preset (recommended)
+
+If this service is exposed beyond a private tailnet, use:
+
+```yaml
+environment:
+  AUTH_ENABLED: true
+  WIDGET_TOKEN: change-me-long-random-token
+  RATE_LIMIT_PER_MINUTE: 30
+  DEBUG_ERRORS: false
+  TRUST_PROXY: true   # only when behind reverse proxy
+```
+
+And configure your proxy to send `X-Widget-Token` for the Glance request.
+
+---
+
 ## Security notes
 
 - Docker socket access is sensitive. This project uses [`tecnativa/docker-socket-proxy`](https://github.com/Tecnativa/docker-socket-proxy) with minimal allowed scope (`CONTAINERS=1`, `POST=0`).

@@ -35,6 +35,13 @@ services:
       DEBUG_ERRORS: false
       RATE_LIMIT_PER_MINUTE: 120
       TRUST_PROXY: false
+
+      # Public-safe preset (recommended when exposed beyond tailnet):
+      # AUTH_ENABLED: true
+      # WIDGET_TOKEN: change-me-long-random-token
+      # RATE_LIMIT_PER_MINUTE: 30
+      # DEBUG_ERRORS: false
+      # TRUST_PROXY: true
     ports:
       - "8789:8789"
     depends_on:
