@@ -117,9 +117,18 @@ Environment variables (optional):
 
 ---
 
-## Acknowledgement (AI-assisted development)
+## Acknowledgements
+
+### AI-assisted development
 
 This project was created with AI assistance (OpenClaw + GPT-based coding help) and reviewed/adjusted by the maintainer.
+
+### Upstream/open-source projects used
+
+- [`tecnativa/docker-socket-proxy`](https://github.com/Tecnativa/docker-socket-proxy) — restricted Docker API proxy used for safer Docker socket access.
+- [`Flask`](https://github.com/pallets/flask) — lightweight Python web framework for the helper API.
+- [`Requests`](https://github.com/psf/requests) — HTTP client used to query Docker API endpoints.
+- [`Glance`](https://github.com/glanceapp/glance) — dashboard that renders this helper via `custom-api` widget.
 
 ---
 
