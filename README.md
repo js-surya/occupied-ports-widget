@@ -93,11 +93,18 @@ Add this widget to your `glance.yml`:
         text-align: center;
         padding: 0.28rem 0.2rem;
         border-radius: 6px;
-        border: 1px solid color-mix(in srgb, var(--color-text-base) 14%, transparent);
+        border: 1px solid color-mix(in srgb, var(--color-text-base) 16%, transparent);
+        background: color-mix(in srgb, var(--color-widget-background) 82%, var(--color-text-base) 18%);
         font-size: 1rem;
         font-weight: 600;
         color: var(--color-text-base);
-        opacity: 0.95;
+        opacity: 0.97;
+        display: block;
+        transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+      }
+      .port-chip:hover {
+        background: color-mix(in srgb, var(--color-widget-background) 72%, var(--color-primary) 28%);
+        border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
       }
     </style>
     <ul class="list ports-grid collapsible-container" data-collapse-after="16">
