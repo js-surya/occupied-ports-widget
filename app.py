@@ -214,6 +214,31 @@ def check_port():
     })
 
 
+@app.get('/check-fragment')
+def check_fragment():
+    if not _authorized():
+        return render_template_string('<div style="color:#ff6b6b;font-size:0.82rem;">Unauthorized</div>'), 401
+
+    if not _check_rate_limit():
+        return render_template_string('<div style="color:#ff6b6b;font-size:0.82rem;">Rate limit exceeded</div>'), 429
+
+    port_raw = request.args.get('port', '').strip()
+    if not port_raw.isdigit():
+        return render_template_string('<div style="color:#ff6b6b;font-size:0.82rem;">Enter a valid port (1-65535).</div>')
+
+    port = int(port_raw)
+    if port < 1 or port > 65535:
+        return render_template_string('<div style="color:#ff6b6b;font-size:0.82rem;">Enter a valid port (1-65535).</div>')
+
+    payload = _get_payload()
+    items = payload.get('items', []) if payload.get('ok') else []
+    occupied = any(int(i.get('port', -1)) == port for i in items)
+
+    if occupied:
+        return render_template_string('<div style="color:#ff6b6b;font-size:0.82rem;">Port {{p}} is occupied</div>', p=port)
+    return render_template_string('<div style="color:#66d17a;font-size:0.82rem;">Port {{p}} is free</div>', p=port)
+
+
 @app.get('/widget')
 def widget():
     if not _authorized():
@@ -300,49 +325,16 @@ def widget():
         <div class="status">{{ payload.count }} ports · sorted {{ payload.sort_mode }} · range {{ payload.min_port }}-{{ payload.max_port }}</div>
       {% endif %}
 
-      <div class="row">
-        <input id="port-check-input" type="number" min="1" max="65535" placeholder="Check port" value="{{ port_raw }}" />
-        <button id="port-check-btn" type="button">Check</button>
-      </div>
+      <form class="row" method="get" action="/check-fragment" target="port-check-result-frame">
+        <input name="port" type="number" min="1" max="65535" placeholder="Check port" value="{{ port_raw }}" required />
+        <button type="submit">Check</button>
+      </form>
 
-      <div id="port-check-result" class="status"></div>
-
-      <script>
-        (() => {
-          const occupied = new Set([{% for i in items %}{{ i.port }},{% endfor %}]);
-          const input = document.getElementById('port-check-input');
-          const btn = document.getElementById('port-check-btn');
-          const result = document.getElementById('port-check-result');
-
-          if (!input || !btn || !result) return;
-
-          const runCheck = () => {
-            const raw = String(input.value || '').trim();
-            const port = Number(raw);
-            if (!Number.isInteger(port) || port < 1 || port > 65535) {
-              result.className = 'status bad';
-              result.textContent = 'Enter a valid port (1-65535).';
-              return;
-            }
-
-            if (occupied.has(port)) {
-              result.className = 'status bad';
-              result.textContent = `Port ${port} is occupied`;
-            } else {
-              result.className = 'status ok';
-              result.textContent = `Port ${port} is free`;
-            }
-          };
-
-          btn.addEventListener('click', runCheck);
-          input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              runCheck();
-            }
-          });
-        })();
-      </script>
+      <iframe
+        name="port-check-result-frame"
+        title="Port check result"
+        style="margin-top:0.35rem;width:100%;height:1.6rem;border:0;background:transparent;"
+      ></iframe>
     </body>
     </html>
     """
