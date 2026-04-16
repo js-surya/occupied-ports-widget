@@ -187,10 +187,10 @@ def ports():
 @app.get('/widget')
 def widget():
     if not _authorized():
-        return render_template_string('<div style="padding:0.5rem;color:#ff6b6b;">Unauthorized</div>'), 401
+        return render_template_string('<div style="padding:0.5rem;color:var(--color-negative, var(--color-text-base, #e7edf7));">Unauthorized</div>'), 401
 
     if not _check_rate_limit():
-        return render_template_string('<div style="padding:0.5rem;color:#ff6b6b;">Rate limit exceeded</div>'), 429
+        return render_template_string('<div style="padding:0.5rem;color:var(--color-negative, var(--color-text-base, #e7edf7));">Rate limit exceeded</div>'), 429
 
     payload = _get_payload()
     items = payload.get('items', []) if payload.get('ok') else []
@@ -240,8 +240,8 @@ def widget():
           color: var(--color-text-base, #e7edf7); cursor: pointer;
         }
         .toggle { margin-top: 0.45rem; font-size: 0.78rem; opacity: 0.86; }
-        .bad { color: #ff6b6b; }
-        .ok { color: #66d17a; }
+        .bad { color: var(--color-negative, var(--color-text-base, #e7edf7)); }
+        .ok { color: var(--color-positive, var(--color-primary, var(--color-text-base, #e7edf7))); }
       </style>
     </head>
     <body>
