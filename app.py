@@ -239,6 +239,7 @@ def widget():
       </style>
     </head>
     <body>
+      <div id="widget-root">
       {% if not payload.ok %}
         <div class="bad">Data unavailable</div>
         <div class="status">{{ payload.error }}</div>
@@ -252,7 +253,51 @@ def widget():
           </div>
         </details>
       {% endif %}
+      </div>
+      <script>
+        const POLL_MS = 3000;
+        const root = document.getElementById('widget-root');
+        const escapeHtml = (s) => String(s)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
 
+        function renderPayload(payload) {
+          if (!payload.ok) {
+            root.innerHTML = `<div class="bad">Data unavailable</div><div class="status">${escapeHtml(payload.error || 'temporarily unavailable')}</div>`;
+            return;
+          }
+
+          const items = Array.isArray(payload.items) ? payload.items : [];
+          const chips = items.map((i) => {
+            const reserved = i.reserved ? ' reserved' : '';
+            return `<a class="port-chip${reserved}" href="${escapeHtml(i.url)}" target="_blank" rel="noreferrer">${escapeHtml(i.port)}</a>`;
+          }).join('');
+
+          const openAttr = items.length <= 16 ? ' open' : '';
+          root.innerHTML = `
+            <details class="ports-collapse"${openAttr}>
+              <summary class="toggle">${escapeHtml(payload.count)} ports · sorted ${escapeHtml(payload.sort_mode)} · range ${escapeHtml(payload.min_port)}-${escapeHtml(payload.max_port)}</summary>
+              <div class="ports-grid">${chips}</div>
+            </details>
+          `;
+        }
+
+        async function refreshPorts() {
+          try {
+            const res = await fetch('/ports', { cache: 'no-store' });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const payload = await res.json();
+            renderPayload(payload);
+          } catch (_) {
+            // keep last good render
+          }
+        }
+
+        setInterval(refreshPorts, POLL_MS);
+      </script>
     </body>
     </html>
     """
