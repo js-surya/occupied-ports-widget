@@ -63,8 +63,6 @@ Helper API:
 
 - `GET /health`
 - `GET /ports`
-- `GET /check?port=8088`
-- `GET /check-ui` (simple HTML port checker form)
 
 Local test:
 
@@ -109,7 +107,6 @@ Expected:
 
 - `/health` returns `{"ok":true}`
 - `/ports` returns JSON with `ok`, `count`, and `items`
-- `/check?port=8088` returns occupancy status for that exact port
 
 ### 5) Add widget to Glance
 
@@ -133,20 +130,6 @@ curl http://127.0.0.1:8789/ports
 If Glance cannot reach `http://host.docker.internal:8789/ports`, replace it with a reachable host address for your Docker setup.
 
 ---
-
-## Port search/check endpoint
-
-Check one port via API:
-
-```bash
-curl "http://127.0.0.1:8789/check?port=8088"
-```
-
-Open browser form:
-
-```bash
-http://127.0.0.1:8789/check-ui
-```
 
 ---
 
@@ -247,7 +230,7 @@ Environment variables (optional):
 - `SORT_MODE` (`asc` | `desc` | `recent`, default: `asc`)
 - `SHOW_SOURCE` (`true|false`, default: `false`)
 - `LINK_SCHEME` (default: `http`)
-- `LINK_HOST` (default: `127.0.0.1`)
+- `LINK_HOST` (default: `localhost`)
 - `AUTH_ENABLED` (`true|false`, default: `false`)
 - `WIDGET_TOKEN` (required when `AUTH_ENABLED=true`)
 - `RATE_LIMIT_PER_MINUTE` (default: `120`)
@@ -262,14 +245,18 @@ If this service is exposed beyond a private tailnet, use:
 
 ```yaml
 environment:
+  LINK_SCHEME: https
+  LINK_HOST: your-public-host.example.com
   AUTH_ENABLED: true
   WIDGET_TOKEN: change-me-long-random-token
   RATE_LIMIT_PER_MINUTE: 30
   DEBUG_ERRORS: false
   TRUST_PROXY: true   # only when behind reverse proxy
+ports:
+  - "127.0.0.1:8789:8789"
 ```
 
-And configure your proxy to send `X-Widget-Token` for the Glance request.
+And configure your reverse proxy to send `X-Widget-Token` for the Glance request.
 
 ---
 
@@ -277,9 +264,11 @@ And configure your proxy to send `X-Widget-Token` for the Glance request.
 
 - Docker socket access is sensitive. This project uses [`tecnativa/docker-socket-proxy`](https://github.com/Tecnativa/docker-socket-proxy) with minimal allowed scope (`CONTAINERS=1`, `POST=0`).
 - Container hardening defaults are enabled: non-root runtime, read-only filesystem, `no-new-privileges`, dropped Linux capabilities, memory/CPU/pid limits.
+- The default compose bind is loopback-only (`127.0.0.1:8789:8789`) to avoid accidental public exposure.
 - Optional API token auth is supported via `AUTH_ENABLED=true` + `WIDGET_TOKEN` and request header `X-Widget-Token`.
 - Basic per-IP rate limiting is enabled (configurable via `RATE_LIMIT_PER_MINUTE`).
 - Error responses are sanitized by default (`DEBUG_ERRORS=false`) to avoid leaking internals.
+- Published ports are operational metadata. Treat this service as sensitive even if container names are hidden.
 - Recommended for public exposure: place behind reverse proxy + TLS + IP allowlist and enable auth token.
 
 ---

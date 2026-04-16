@@ -20,9 +20,11 @@ Include:
 
 If deploying outside a private tailnet/network:
 
-1. Run behind HTTPS reverse proxy
-2. Enable `AUTH_ENABLED=true` and set strong `WIDGET_TOKEN`
-3. Set lower `RATE_LIMIT_PER_MINUTE` (e.g., 30)
-4. Keep `DEBUG_ERRORS=false`
-5. Restrict inbound IPs where possible
-6. Do not widen Docker socket proxy permissions beyond required scope
+1. Keep the service bound to loopback only and publish it via reverse proxy, not direct public Docker port binding
+2. Run behind HTTPS reverse proxy
+3. Enable `AUTH_ENABLED=true` and set strong `WIDGET_TOKEN`
+4. Set lower `RATE_LIMIT_PER_MINUTE` (e.g., 30)
+5. Keep `DEBUG_ERRORS=false`
+6. Restrict inbound IPs where possible
+7. Do not widen Docker socket proxy permissions beyond required scope
+8. Remember this service reveals published host ports, which may be sensitive operational metadata

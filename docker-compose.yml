@@ -1,6 +1,6 @@
 services:
   occupied-ports-docker-proxy:
-    image: tecnativa/docker-socket-proxy:latest
+    image: tecnativa/docker-socket-proxy:0.4.1
     container_name: occupied-ports-docker-proxy
     environment:
       CONTAINERS: 1
@@ -29,8 +29,7 @@ services:
       SORT_MODE: asc
       SHOW_SOURCE: false
       LINK_SCHEME: http
-      LINK_HOST: helbuntu.ghost-hadar.ts.net
-      PUBLIC_BASE_URL: https://helbuntu.ghost-hadar.ts.net:8789
+      LINK_HOST: localhost
       AUTH_ENABLED: false
       WIDGET_TOKEN:
       DEBUG_ERRORS: false
@@ -38,13 +37,15 @@ services:
       TRUST_PROXY: false
 
       # Public-safe preset (recommended when exposed beyond tailnet):
+      # LINK_SCHEME: https
+      # LINK_HOST: your-public-host.example.com
       # AUTH_ENABLED: true
       # WIDGET_TOKEN: change-me-long-random-token
       # RATE_LIMIT_PER_MINUTE: 30
       # DEBUG_ERRORS: false
       # TRUST_PROXY: true
     ports:
-      - "8789:8789"
+      - "127.0.0.1:8789:8789"
     depends_on:
       - occupied-ports-docker-proxy
     healthcheck:
