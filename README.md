@@ -226,7 +226,7 @@ If Glance cannot reach `http://host.docker.internal:8789/ports`, replace it with
 ## Compatibility
 
 - Tested with Linux Docker Engine 29.x
-- Tested with Glance dashboard using `custom-api` widgets
+- Tested with Glance dashboard using `extension` widgets
 
 ---
 
@@ -306,7 +306,7 @@ This project was created with AI assistance (OpenClaw + GPT-based coding help) a
 - [`tecnativa/docker-socket-proxy`](https://github.com/Tecnativa/docker-socket-proxy) — restricted Docker API proxy used for safer Docker socket access.
 - [`Flask`](https://github.com/pallets/flask) — lightweight Python web framework for the helper API.
 - [`Requests`](https://github.com/psf/requests) — HTTP client used to query Docker API endpoints.
-- [`Glance`](https://github.com/glanceapp/glance) — dashboard that renders this helper via `custom-api` widget.
+- [`Glance`](https://github.com/glanceapp/glance) — dashboard that renders this helper via `extension` widget format.
 
 ---
 
