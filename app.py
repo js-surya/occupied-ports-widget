@@ -185,7 +185,6 @@ def ports():
 
 
 @app.get('/widget')
-@app.get('/extension')
 def widget():
     if not _authorized():
         return render_template_string('<div style="padding:0.5rem;color:var(--color-negative, var(--color-text-base, #e7edf7));">Unauthorized</div>'), 401

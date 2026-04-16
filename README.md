@@ -3,7 +3,7 @@
 ![CI](https://github.com/js-surya/occupied-ports-widget/actions/workflows/ci.yml/badge.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-A tiny helper service that exposes **currently published Docker host ports** as JSON for a Glance `custom-api` widget, with an HTML extension endpoint also available if needed.
+A tiny helper service that exposes **currently published Docker host ports** as JSON for a Glance `custom-api` widget.
 
 This is useful when you are about to deploy a new service and want a quick visual list of ports already in use.
 
@@ -27,7 +27,6 @@ This is useful when you are about to deploy a new service and want a quick visua
 - Production-oriented runtime (Gunicorn, non-root user, healthcheck)
 - Basic CI with tests + Docker build check (GitHub Actions)
 - Works well with Glance `custom-api` widgets
-- HTML extension endpoint also available for Glance `extension` widgets
 
 ---
 
@@ -114,7 +113,7 @@ Expected:
 
 ### 5) Add widget to Glance
 
-Recommended: use the **custom-api widget** example below so Glance controls refresh/render behavior directly. An `extension` option is still available if you prefer HTML rendering.
+Use the **custom-api widget** example below so Glance controls refresh/render behavior directly.
 
 ### 6) Restart Glance
 
@@ -167,17 +166,7 @@ If Glance cannot reach `http://host.docker.internal:8789/ports`, replace it with
     </ul>
 ```
 
-### 3) Optional extension format
-
-```yaml
-- type: extension
-  title: Occupied Ports
-  url: http://host.docker.internal:8789/extension
-  fallback-content-type: html
-  allow-potentially-dangerous-html: true
-```
-
-### 4) Styled custom-api template (dark/light adaptive + clickable)
+### 3) Styled custom-api template (dark/light adaptive + clickable)
 
 ```yaml
 - type: custom-api
@@ -321,7 +310,7 @@ This project was created with AI assistance (OpenClaw + GPT-based coding help) a
 - [`tecnativa/docker-socket-proxy`](https://github.com/Tecnativa/docker-socket-proxy) — restricted Docker API proxy used for safer Docker socket access.
 - [`Flask`](https://github.com/pallets/flask) — lightweight Python web framework for the helper API.
 - [`Requests`](https://github.com/psf/requests) — HTTP client used to query Docker API endpoints.
-- [`Glance`](https://github.com/glanceapp/glance) — dashboard that renders this helper via `custom-api` or `extension` widget formats.
+- [`Glance`](https://github.com/glanceapp/glance) — dashboard that renders this helper via `custom-api` widget format.
 
 ---
 
