@@ -136,7 +136,7 @@ If Glance cannot reach `http://host.docker.internal:8789/ports`, replace it with
 
 ## Glance configuration
 
-### 1) Recommended custom-api format
+### 1) Minimal custom-api format
 
 ```yaml
 - type: custom-api
@@ -151,7 +151,7 @@ If Glance cannot reach `http://host.docker.internal:8789/ports`, replace it with
     </ul>
 ```
 
-### 2) Recommended live-style custom-api template
+### 2) Styled custom-api template (recommended)
 
 ```yaml
 - type: custom-api
@@ -166,7 +166,6 @@ If Glance cannot reach `http://host.docker.internal:8789/ports`, replace it with
     </ul>
 ```
 
-### 3) Styled custom-api template (dark/light adaptive + clickable)
 
 ```yaml
 - type: custom-api
