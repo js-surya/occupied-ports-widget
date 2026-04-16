@@ -226,8 +226,14 @@ def widget():
           background: color-mix(in srgb, var(--color-widget-background, #11151b) 75%, var(--color-primary, #67b3ff) 25%);
           color: var(--color-primary, #67b3ff);
         }
+        .ports-collapse { margin-top: 0.1rem; }
+        .ports-collapse summary {
+          cursor: pointer;
+          list-style: none;
+        }
+        .ports-collapse summary::-webkit-details-marker { display: none; }
         .status { margin-top: 0.55rem; font-size: 0.8rem; opacity: 0.8; }
-        .toggle { margin-top: 0.45rem; font-size: 0.78rem; opacity: 0.86; }
+        .toggle { margin-top: 0.45rem; margin-bottom: 0.55rem; font-size: 0.78rem; opacity: 0.86; }
         .bad { color: var(--color-negative, var(--color-text-base, #e7edf7)); }
         .ok { color: var(--color-positive, var(--color-primary, var(--color-text-base, #e7edf7))); }
       </style>
@@ -237,15 +243,14 @@ def widget():
         <div class="bad">Data unavailable</div>
         <div class="status">{{ payload.error }}</div>
       {% else %}
-        <div class="ports-grid">
-          {% for i in items[:16] %}
-            <a class="port-chip {% if i.reserved %}reserved{% endif %}" href="{{ i.url }}" target="_blank" rel="noreferrer">{{ i.port }}</a>
-          {% endfor %}
-        </div>
-        {% if items|length > 16 %}
-          <div class="toggle">Showing first 16 of {{ items|length }} ports</div>
-        {% endif %}
-        <div class="status">{{ payload.count }} ports · sorted {{ payload.sort_mode }} · range {{ payload.min_port }}-{{ payload.max_port }}</div>
+        <details class="ports-collapse" {% if items|length <= 16 %}open{% endif %}>
+          <summary class="toggle">{{ payload.count }} ports · sorted {{ payload.sort_mode }} · range {{ payload.min_port }}-{{ payload.max_port }}</summary>
+          <div class="ports-grid">
+            {% for i in items %}
+              <a class="port-chip {% if i.reserved %}reserved{% endif %}" href="{{ i.url }}" target="_blank" rel="noreferrer">{{ i.port }}</a>
+            {% endfor %}
+          </div>
+        </details>
       {% endif %}
 
     </body>
