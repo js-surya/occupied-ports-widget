@@ -45,8 +45,8 @@ This is useful when you are about to deploy a new service and want a quick visua
   "max_port": 65535,
   "count": 2,
   "items": [
-    { "port": 53, "proto": "tcp", "url": "http://127.0.0.1:53", "reserved": true, "reserved_label": "DNS" },
-    { "port": 8088, "proto": "tcp", "url": "http://127.0.0.1:8088", "reserved": false, "reserved_label": "" }
+    { "port": 53, "proto": "tcp", "url": "http://localhost:53", "reserved": true, "reserved_label": "DNS" },
+    { "port": 8088, "proto": "tcp", "url": "http://localhost:8088", "reserved": false, "reserved_label": "" }
   ]
 }
 ```
@@ -58,6 +58,8 @@ This is useful when you are about to deploy a new service and want a quick visua
 ```bash
 docker compose up -d --build
 ```
+
+> Note: the compose file currently uses `tecnativa/docker-socket-proxy:latest` because a previously pinned tag was unavailable on Docker Hub. If you prefer stricter reproducibility, pin this image to a verified published tag or digest in your own deployment.
 
 Helper API:
 
@@ -86,7 +88,8 @@ cd occupied-ports-widget
 Edit `docker-compose.yml` under `occupied-ports-widget.environment`.
 Most important keys:
 
-- `LINK_HOST` → your server domain/IP used for clickable links
+- `LINK_HOST` → host/domain used for clickable links in the widget payload
+- `LINK_SCHEME` → usually `http` for private use, `https` when published through TLS
 - `AUTH_ENABLED` / `WIDGET_TOKEN` → required if exposing beyond private tailnet
 - `RATE_LIMIT_PER_MINUTE` → reduce if public-facing (e.g., `30`)
 
@@ -127,9 +130,7 @@ docker logs occupied-ports-docker-proxy --tail 100
 curl http://127.0.0.1:8789/ports
 ```
 
-If Glance cannot reach `http://host.docker.internal:8789/ports`, replace it with a reachable host address for your Docker setup.
-
----
+If Glance cannot reach `http://host.docker.internal:8789/ports`, replace it with a reachable host address for your Docker setup. On Linux, `host.docker.internal` may require extra configuration or a different reachable host/IP.
 
 ---
 
