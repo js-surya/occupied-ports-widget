@@ -3,7 +3,7 @@
 ![CI](https://github.com/js-surya/occupied-ports-widget/actions/workflows/ci.yml/badge.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-A tiny helper service that exposes **currently published Docker host ports** as JSON for a Glance `custom-api` widget.
+A tiny helper service that exposes **currently published Docker host ports** for a Glance `extension` widget, with a JSON endpoint also available for `custom-api` use.
 
 This is useful when you are about to deploy a new service and want a quick visual list of ports already in use.
 
@@ -26,7 +26,8 @@ This is useful when you are about to deploy a new service and want a quick visua
 - Status envelope (`ok`, `error`, `count`) for safer widget rendering
 - Production-oriented runtime (Gunicorn, non-root user, healthcheck)
 - Basic CI with tests + Docker build check (GitHub Actions)
-- Works well with Glance `custom-api` widgets
+- Works well with Glance `extension` widgets
+- JSON endpoint also available for Glance `custom-api` widgets
 
 ---
 
@@ -113,7 +114,7 @@ Expected:
 
 ### 5) Add widget to Glance
 
-Use either the **Minimal** or **Styled** template from the next section and paste it into your `glance.yml`.
+Recommended: use the **extension widget** example below. A `custom-api` option is still available if you prefer JSON + template rendering.
 
 ### 6) Restart Glance
 
@@ -136,7 +137,17 @@ If Glance cannot reach `http://host.docker.internal:8789/ports`, replace it with
 
 ## Glance configuration
 
-### 1) Minimal template
+### 1) Recommended extension format
+
+```yaml
+- type: extension
+  title: Occupied Ports
+  url: http://host.docker.internal:8789/extension
+  fallback-content-type: html
+  allow-potentially-dangerous-html: true
+```
+
+### 2) Minimal custom-api template
 
 ```yaml
 - type: custom-api
@@ -151,7 +162,7 @@ If Glance cannot reach `http://host.docker.internal:8789/ports`, replace it with
     </ul>
 ```
 
-### 2) Styled template (dark/light adaptive + clickable)
+### 3) Styled custom-api template (dark/light adaptive + clickable)
 
 ```yaml
 - type: custom-api

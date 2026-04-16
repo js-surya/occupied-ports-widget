@@ -185,6 +185,7 @@ def ports():
 
 
 @app.get('/widget')
+@app.get('/extension')
 def widget():
     if not _authorized():
         return render_template_string('<div style="padding:0.5rem;color:var(--color-negative, var(--color-text-base, #e7edf7));">Unauthorized</div>'), 401
@@ -226,19 +227,6 @@ def widget():
           color: var(--color-primary, #67b3ff);
         }
         .status { margin-top: 0.55rem; font-size: 0.8rem; opacity: 0.8; }
-        .row { margin-top: 0.55rem; display: flex; gap: 0.4rem; align-items: center; }
-        .row input {
-          width: 100%; padding: 0.35rem 0.5rem; border-radius: 6px;
-          border: 1px solid color-mix(in srgb, var(--color-text-base, #cfd6e1) 18%, transparent);
-          background: color-mix(in srgb, var(--color-widget-background, #11151b) 88%, var(--color-text-base, #cfd6e1) 12%);
-          color: var(--color-text-base, #e7edf7);
-        }
-        .row button {
-          padding: 0.35rem 0.6rem; border-radius: 6px;
-          border: 1px solid color-mix(in srgb, var(--color-text-base, #cfd6e1) 20%, transparent);
-          background: color-mix(in srgb, var(--color-widget-background, #11151b) 75%, var(--color-primary, #67b3ff) 25%);
-          color: var(--color-text-base, #e7edf7); cursor: pointer;
-        }
         .toggle { margin-top: 0.45rem; font-size: 0.78rem; opacity: 0.86; }
         .bad { color: var(--color-negative, var(--color-text-base, #e7edf7)); }
         .ok { color: var(--color-positive, var(--color-primary, var(--color-text-base, #e7edf7))); }
