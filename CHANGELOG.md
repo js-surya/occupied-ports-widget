@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-06-22
+
+### Added
+- Exposure metadata per published port: `host_ips`, `primary_host_ip`, `exposure_scope`, `exposure_scopes`, and `private_ports`
+- Protocol aggregation via `protocols` while keeping backward-compatible `proto`
+- Optional multi-container source reporting via `SHOW_SOURCE=true` with `source`, `sources`, and `source_count`
+- Scope-aware `/widget` styling and tooltips for quick public/private/tailscale visibility
+- Test coverage for `/widget`, exposure metadata, auth, and rate limiting
+
+### Changed
+- Pinned `tecnativa/docker-socket-proxy` compose image to `v0.4.2`
+- Simplified README examples and clarified private vs public deployment guidance
+
 ## [1.0.0] - 2026-04-13
 
 ### Added

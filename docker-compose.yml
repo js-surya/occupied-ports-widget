@@ -1,6 +1,6 @@
 services:
   occupied-ports-docker-proxy:
-    image: tecnativa/docker-socket-proxy:latest
+    image: tecnativa/docker-socket-proxy:v0.4.2
     container_name: occupied-ports-docker-proxy
     environment:
       CONTAINERS: 1
@@ -44,6 +44,7 @@ services:
       # RATE_LIMIT_PER_MINUTE: 30
       # DEBUG_ERRORS: false
       # TRUST_PROXY: true
+      # SHOW_SOURCE: true
     ports:
       - "127.0.0.1:8789:8789"
     depends_on:

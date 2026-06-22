@@ -3,9 +3,9 @@
 ![CI](https://github.com/js-surya/occupied-ports-widget/actions/workflows/ci.yml/badge.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-A tiny helper service that exposes **currently published Docker host ports** as JSON for a Glance `custom-api` widget.
+A tiny helper service that exposes **currently published Docker host ports** as JSON for a Glance widget.
 
-This is useful when you are about to deploy a new service and want a quick visual list of ports already in use.
+It is useful when you are about to deploy a new service and want a quick, human-friendly view of which host ports are already occupied — and whether they are exposed on **loopback**, **Tailscale**, **private LAN**, or **all interfaces/public**.
 
 ---
 
@@ -18,23 +18,28 @@ This is useful when you are about to deploy a new service and want a quick visua
 ## Features
 
 - Dynamic port discovery from running Docker containers
-- Deduplicated by **port number** (protocol variants collapsed)
+- Deduplicated by **host port** with protocol aggregation
+- Exposure metadata per port:
+  - `host_ips`
+  - `primary_host_ip`
+  - `exposure_scope`
+  - `exposure_scopes`
+  - `private_ports`
+- Optional source-container reporting with `SHOW_SOURCE=true`
 - Sorting modes: `asc`, `desc`, `recent`
 - Port range filter (`MIN_PORT`, `MAX_PORT`)
-- Reserved port hints in payload (e.g. 22/53/80/443)
+- Reserved port hints in payload (for example `22`, `53`, `80`, `443`)
 - Clickable links per port (`LINK_SCHEME://LINK_HOST:port`)
-- Status envelope (`ok`, `error`, `count`) for safer widget rendering
+- JSON API (`/ports`) and ready-made HTML widget (`/widget`)
+- Optional token auth and rate limiting for safer public use
 - Production-oriented runtime (Gunicorn, non-root user, healthcheck)
-- Basic CI with tests + Docker build check (GitHub Actions)
-- Works well with Glance `custom-api` widgets
+- CI with tests and Docker build verification
 
 ---
 
-## How it works
+## API shape
 
-- `occupied-ports-widget` calls Docker Engine API via a restricted `docker-socket-proxy`
-- It reads running containers and collects `PublicPort` mappings
-- It returns JSON in this shape:
+Example `GET /ports` response:
 
 ```json
 {
@@ -45,103 +50,134 @@ This is useful when you are about to deploy a new service and want a quick visua
   "max_port": 65535,
   "count": 2,
   "items": [
-    { "port": 53, "proto": "tcp", "url": "http://localhost:53", "reserved": true, "reserved_label": "DNS" },
-    { "port": 8088, "proto": "tcp", "url": "http://localhost:8088", "reserved": false, "reserved_label": "" }
+    {
+      "port": 53,
+      "proto": "tcp",
+      "protocols": ["tcp", "udp"],
+      "url": "https://example.com:53",
+      "reserved": true,
+      "reserved_label": "DNS",
+      "primary_host_ip": "100.78.209.116",
+      "host_ips": ["100.78.209.116", "127.0.0.1"],
+      "exposure_scope": "mixed",
+      "exposure_scopes": ["tailscale", "loopback"],
+      "private_ports": [53],
+      "source": "glance, pihole",
+      "sources": ["glance", "pihole"],
+      "source_count": 2
+    },
+    {
+      "port": 8088,
+      "proto": "tcp",
+      "protocols": ["tcp"],
+      "url": "https://example.com:8088",
+      "reserved": false,
+      "reserved_label": "",
+      "primary_host_ip": "127.0.0.1",
+      "host_ips": ["127.0.0.1"],
+      "exposure_scope": "loopback",
+      "exposure_scopes": ["loopback"],
+      "private_ports": [8080]
+    }
   ]
 }
 ```
 
+### Exposure scope meanings
+
+- `public` → bound to `0.0.0.0` / `::`
+- `tailscale` → bound to Tailscale address range
+- `private` → bound to RFC1918/private non-loopback address
+- `loopback` → bound to `127.0.0.1` / `::1`
+- `mixed` → the same host port is published on multiple scopes
+- `unknown` → bind address could not be classified
+
 ---
 
-## Run with Docker Compose
-
-```bash
-docker compose up -d --build
-```
-
-> Note: the compose file currently uses `tecnativa/docker-socket-proxy:latest` because a previously pinned tag was unavailable on Docker Hub. If you prefer stricter reproducibility, pin this image to a verified published tag or digest in your own deployment.
-
-Helper API:
+## Endpoints
 
 - `GET /health`
 - `GET /ports`
+- `GET /widget`
 
-Local test:
+`/ports` is the structured API for Glance `custom-api` templates.
 
-```bash
-curl http://127.0.0.1:8789/ports
-```
+`/widget` is a ready-made HTML view that includes:
+- scope-aware chip styling
+- hover tooltips with bind IPs, protocols, and sources
+- lightweight auto-refresh polling
 
 ---
 
-## Detailed installation
-
-### 1) Clone the repository
+## Quick start
 
 ```bash
 git clone https://github.com/js-surya/occupied-ports-widget.git
 cd occupied-ports-widget
-```
-
-### 2) Review/update runtime settings
-
-Edit `docker-compose.yml` under `occupied-ports-widget.environment`.
-Most important keys:
-
-- `LINK_HOST` → host/domain used for clickable links in the widget payload
-- `LINK_SCHEME` → usually `http` for private use, `https` when published through TLS
-- `AUTH_ENABLED` / `WIDGET_TOKEN` → required if exposing beyond private tailnet
-- `RATE_LIMIT_PER_MINUTE` → reduce if public-facing (e.g., `30`)
-
-### 3) Start the service
-
-```bash
 docker compose up -d --build
-```
-
-### 4) Verify health and data endpoints
-
-```bash
 curl http://127.0.0.1:8789/health
 curl http://127.0.0.1:8789/ports
 ```
 
 Expected:
 
-- `/health` returns `{"ok":true}`
+- `/health` returns `{"ok": true}`
 - `/ports` returns JSON with `ok`, `count`, and `items`
-
-### 5) Add widget to Glance
-
-Use the **custom-api widget** example below so Glance controls refresh/render behavior directly.
-
-### 6) Restart Glance
-
-```bash
-docker compose -f /path/to/glance/docker-compose.yml down
-docker compose -f /path/to/glance/docker-compose.yml up -d
-```
-
-### 7) Troubleshooting quick checks
-
-```bash
-docker logs occupied-ports-widget --tail 100
-docker logs occupied-ports-docker-proxy --tail 100
-curl http://127.0.0.1:8789/ports
-```
-
-If Glance cannot reach `http://host.docker.internal:8789/ports`, replace it with a reachable host address for your Docker setup. On Linux, `host.docker.internal` may require extra configuration or a different reachable host/IP.
 
 ---
 
-## Glance configuration
+## Docker Compose
 
-### 1) Minimal custom-api format
+The included compose file uses:
+
+- loopback-only bind for the widget: `127.0.0.1:8789:8789`
+- pinned socket proxy image: `tecnativa/docker-socket-proxy:v0.4.2`
+- restricted Docker API scope: `CONTAINERS=1`, `POST=0`
+
+Start it with:
+
+```bash
+docker compose up -d --build
+```
+
+---
+
+## Configuration
+
+Environment variables:
+
+- `PORT` (default: `8789`)
+- `DOCKER_API` (default: `http://occupied-ports-docker-proxy:2375/containers/json`)
+- `TIMEOUT_SECONDS` (default: `6`)
+- `CACHE_SECONDS` (default: `5`)
+- `MIN_PORT` / `MAX_PORT` (defaults: `1` / `65535`)
+- `SORT_MODE` (`asc` | `desc` | `recent`, default: `asc`)
+- `SHOW_SOURCE` (`true|false`, default: `false`)
+- `LINK_SCHEME` (default: `http`)
+- `LINK_HOST` (default: `localhost`)
+- `AUTH_ENABLED` (`true|false`, default: `false`)
+- `WIDGET_TOKEN` (required when `AUTH_ENABLED=true`)
+- `RATE_LIMIT_PER_MINUTE` (default: `120`)
+- `DEBUG_ERRORS` (`true|false`, default: `false`)
+- `TRUST_PROXY` (`true|false`, default: `false`)
+
+### Most useful options
+
+- `SHOW_SOURCE=true` → include container names in API and widget tooltips
+- `LINK_HOST=your-domain-or-ip` → make links point somewhere meaningful
+- `AUTH_ENABLED=true` + `WIDGET_TOKEN=...` → required if exposed beyond private access
+- `RATE_LIMIT_PER_MINUTE=30` → safer for public/reverse-proxied deployments
+
+---
+
+## Glance examples
+
+### Minimal `custom-api` example
 
 ```yaml
 - type: custom-api
   title: Occupied Ports
-  cache: 5s
+  cache: 10s
   url: http://host.docker.internal:8789/ports
   template: |
     <ul class="list">
@@ -151,21 +187,7 @@ If Glance cannot reach `http://host.docker.internal:8789/ports`, replace it with
     </ul>
 ```
 
-### 2) Styled custom-api template (recommended)
-
-```yaml
-- type: custom-api
-  title: Occupied Ports
-  cache: 15s
-  url: http://host.docker.internal:8789/ports
-  template: |
-    <ul class="list">
-      {{ range .JSON.Array "items" }}
-        <li>{{ .Int "port" }}</li>
-      {{ end }}
-    </ul>
-```
-
+### Recommended `custom-api` example with scope hints
 
 ```yaml
 - type: custom-api
@@ -184,6 +206,7 @@ If Glance cannot reach `http://host.docker.internal:8789/ports`, replace it with
         margin: 0;
       }
       .port-chip {
+        display: block;
         text-align: center;
         padding: 0.28rem 0.2rem;
         border-radius: 6px;
@@ -192,16 +215,14 @@ If Glance cannot reach `http://host.docker.internal:8789/ports`, replace it with
         font-size: 1rem;
         font-weight: 600;
         color: var(--color-text-base);
-        opacity: 0.97;
-        display: block;
-        transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+        text-decoration: none;
       }
-      .port-chip:hover {
-        background: color-mix(in srgb, var(--color-widget-background) 72%, var(--color-primary) 28%);
-        border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
-      }
+      .port-chip.public { border-color: color-mix(in srgb, #ff7b72 46%, transparent); }
+      .port-chip.tailscale { border-color: color-mix(in srgb, #6eb6ff 46%, transparent); }
+      .port-chip.private { border-color: color-mix(in srgb, #f2cc60 42%, transparent); }
+      .port-chip.loopback { border-color: color-mix(in srgb, #3fb950 42%, transparent); }
+      .port-chip.mixed { border-style: dashed; }
       .port-chip.reserved {
-        border-color: color-mix(in srgb, var(--color-primary) 42%, transparent);
         background: color-mix(in srgb, var(--color-widget-background) 75%, var(--color-primary) 25%);
         color: var(--color-primary);
       }
@@ -213,7 +234,13 @@ If Glance cannot reach `http://host.docker.internal:8789/ports`, replace it with
       <ul class="list ports-grid collapsible-container" data-collapse-after="16">
         {{ range .JSON.Array "items" }}
           <li>
-            <a class="port-chip {{ if .Bool "reserved" }}reserved{{ end }}" href="{{ .String "url" }}" target="_blank" rel="noreferrer">
+            <a
+              class="port-chip {{ .String "exposure_scope" }} {{ if .Bool "reserved" }}reserved{{ end }}"
+              href="{{ .String "url" }}"
+              target="_blank"
+              rel="noreferrer"
+              title="{{ .String "exposure_scope" }} · {{ .String "primary_host_ip" }}"
+            >
               {{ .Int "port" }}
             </a>
           </li>
@@ -222,41 +249,48 @@ If Glance cannot reach `http://host.docker.internal:8789/ports`, replace it with
     {{ end }}
 ```
 
-> If `host.docker.internal` is not reachable in your setup, replace with a reachable host address from inside the Glance container.
+### Ready-made iframe widget example
+
+If you prefer using the built-in HTML widget instead of writing a template:
+
+```yaml
+- type: iframe
+  title: Occupied Ports
+  source: http://host.docker.internal:8789/widget
+  height: 220
+```
+
+> If `host.docker.internal` is not reachable in your setup, replace it with a host address reachable from inside the Glance container.
 
 ---
 
-## Compatibility
+## Public-safe deployment
 
-- Tested with Linux Docker Engine 29.x
-- Tested with Glance dashboard using `custom-api` widgets
+If anyone on the internet may reach this helper, treat it as sensitive operational metadata.
 
----
+Recommended minimums:
 
-## Configuration
+1. Keep the container bound to loopback only:
+   ```yaml
+   ports:
+     - "127.0.0.1:8789:8789"
+   ```
+2. Put it behind HTTPS reverse proxy
+3. Enable token auth:
+   ```yaml
+   environment:
+     AUTH_ENABLED: true
+     WIDGET_TOKEN: change-me-long-random-token
+   ```
+4. Lower rate limit:
+   ```yaml
+   environment:
+     RATE_LIMIT_PER_MINUTE: 30
+   ```
+5. Use `TRUST_PROXY=true` only when actually behind a trusted reverse proxy
+6. Consider `SHOW_SOURCE=false` if you do not want to reveal container names
 
-Environment variables (optional):
-
-- `PORT` (default: `8789`)
-- `DOCKER_API` (default: `http://occupied-ports-docker-proxy:2375/containers/json`)
-- `TIMEOUT_SECONDS` (default: `6`)
-- `CACHE_SECONDS` (default: `5`)
-- `MIN_PORT` / `MAX_PORT` (defaults: `1` / `65535`)
-- `SORT_MODE` (`asc` | `desc` | `recent`, default: `asc`)
-- `SHOW_SOURCE` (`true|false`, default: `false`)
-- `LINK_SCHEME` (default: `http`)
-- `LINK_HOST` (default: `localhost`)
-- `AUTH_ENABLED` (`true|false`, default: `false`)
-- `WIDGET_TOKEN` (required when `AUTH_ENABLED=true`)
-- `RATE_LIMIT_PER_MINUTE` (default: `120`)
-- `DEBUG_ERRORS` (`true|false`, default: `false`)
-- `TRUST_PROXY` (`true|false`, default: `false`)
-
----
-
-## Public-safe preset (recommended)
-
-If this service is exposed beyond a private tailnet, use:
+A typical public-safe env block:
 
 ```yaml
 environment:
@@ -266,25 +300,23 @@ environment:
   WIDGET_TOKEN: change-me-long-random-token
   RATE_LIMIT_PER_MINUTE: 30
   DEBUG_ERRORS: false
-  TRUST_PROXY: true   # only when behind reverse proxy
+  TRUST_PROXY: true
+  SHOW_SOURCE: true
 ports:
   - "127.0.0.1:8789:8789"
 ```
 
-And configure your reverse proxy to send `X-Widget-Token` for the Glance request.
+If your reverse proxy supports it, have it send `X-Widget-Token` to the upstream request.
 
 ---
 
 ## Security notes
 
-- Docker socket access is sensitive. This project uses [`tecnativa/docker-socket-proxy`](https://github.com/Tecnativa/docker-socket-proxy) with minimal allowed scope (`CONTAINERS=1`, `POST=0`).
-- Container hardening defaults are enabled: non-root runtime, read-only filesystem, `no-new-privileges`, dropped Linux capabilities, memory/CPU/pid limits.
-- The default compose bind is loopback-only (`127.0.0.1:8789:8789`) to avoid accidental public exposure.
-- Optional API token auth is supported via `AUTH_ENABLED=true` + `WIDGET_TOKEN` and request header `X-Widget-Token`.
-- Basic per-IP rate limiting is enabled (configurable via `RATE_LIMIT_PER_MINUTE`).
-- Error responses are sanitized by default (`DEBUG_ERRORS=false`) to avoid leaking internals.
-- Published ports are operational metadata. Treat this service as sensitive even if container names are hidden.
-- Recommended for public exposure: place behind reverse proxy + TLS + IP allowlist and enable auth token.
+- Docker socket access is sensitive. This project uses [`tecnativa/docker-socket-proxy`](https://github.com/Tecnativa/docker-socket-proxy) with minimal allowed scope.
+- The default compose bind is loopback-only to avoid accidental public exposure.
+- Optional token auth is supported via `AUTH_ENABLED=true` and request header `X-Widget-Token`.
+- Error responses are sanitized by default with `DEBUG_ERRORS=false`.
+- Published ports can reveal meaningful details about your stack; expose carefully.
 
 ---
 
@@ -296,28 +328,17 @@ Run tests locally:
 pytest -q
 ```
 
----
+Build test:
 
-## Acknowledgements
-
-### AI-assisted development
-
-This project was created with AI assistance (OpenClaw + GPT-based coding help) and reviewed/adjusted by the maintainer.
-
-### Upstream/open-source projects used
-
-- [`tecnativa/docker-socket-proxy`](https://github.com/Tecnativa/docker-socket-proxy) — restricted Docker API proxy used for safer Docker socket access.
-- [`Flask`](https://github.com/pallets/flask) — lightweight Python web framework for the helper API.
-- [`Requests`](https://github.com/psf/requests) — HTTP client used to query Docker API endpoints.
-- [`Glance`](https://github.com/glanceapp/glance) — dashboard that renders this helper via `custom-api` widget format.
+```bash
+docker build -t occupied-ports-widget:local .
+```
 
 ---
 
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md).
-
----
 
 ## License
 
