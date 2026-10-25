@@ -10,7 +10,7 @@
     function setupCollapse(widget, expanded) {
         const list = widget.querySelector('.ports-grid');
         if (!list) return;
-        const limit = Number(list.dataset.collapseAfter || 16);
+        const limit = Number(list.dataset.collapseAfter || 8);
         if (limit < 0 || list.children.length <= limit) return;
         list.classList.toggle('container-expanded', expanded);
         Array.from(list.children).slice(limit).forEach(item => item.classList.add('collapsible-item'));
@@ -22,7 +22,7 @@
         icon.className = 'expand-toggle-button-icon';
         button.append(label, icon);
         const update = () => {
-            label.nodeValue = expanded ? 'Show less' : 'Show more';
+            label.nodeValue = expanded ? 'Show less' : `Show all · ${list.children.length} ports`;
             button.setAttribute('aria-expanded', String(expanded));
             button.classList.toggle('container-expanded', expanded);
             list.classList.toggle('container-expanded', expanded);
@@ -52,8 +52,15 @@
                 if (!current || !next) return;
                 if (signatures.get(widget) !== next.innerHTML) {
                     const expanded = !!widget.querySelector('.ports-grid.container-expanded');
+                    const previousPorts = new Set([...widget.querySelectorAll('.port-chip')].map(chip => chip.textContent.trim()));
+                    const initialized = signatures.has(widget);
                     current.replaceChildren(...[...next.childNodes].map(node => document.importNode(node, true)));
                     setupCollapse(widget, expanded);
+                    if (initialized) {
+                        widget.querySelectorAll('.port-chip').forEach(chip => {
+                            if (!previousPorts.has(chip.textContent.trim())) chip.classList.add('port-new');
+                        });
+                    }
                     signatures.set(widget, next.innerHTML);
                 }
                 widget.removeAttribute('data-ports-stale');

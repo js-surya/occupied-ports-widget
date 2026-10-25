@@ -13,6 +13,8 @@ It is useful when you are about to deploy a new service and want a quick, human-
 
 ![Occupied Ports Widget](assets/occupied-ports-widget.jpg)
 
+Compact Glance layout shown with illustrative sample data.
+
 ---
 
 ## Features
@@ -50,6 +52,7 @@ Example `GET /ports` response (addresses and container names are illustrative):
   "min_port": 1,
   "max_port": 65535,
   "count": 2,
+  "public_count": 0,
   "items": [
     {
       "port": 53,
@@ -216,67 +219,84 @@ is needed. If Glance runs directly on the host, use `http://127.0.0.1:8789/ports
     </ul>
 ```
 
-### Recommended `custom-api` example with scope hints
+### Recommended compact `custom-api` layout
 
 ```yaml
 - type: custom-api
   title: Occupied Ports
-  cache: 15s
+  css-class: occupied-ports-live
+  cache: 1s
   url: http://occupied-ports-widget:8789/ports
   template: |
     <style>
-      .ports-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 0.4rem;
+      .occupied-ports-panel .ports-summary {
+        display: flex; justify-content: space-between; gap: 0.5rem;
+        margin-bottom: 0.65rem; font-size: 0.85em; color: var(--color-text-subdue);
       }
-      .ports-grid > li {
-        list-style: none;
-        margin: 0;
+      .occupied-ports-panel .ports-grid {
+        display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.4rem;
       }
-      .port-chip {
-        display: block;
-        text-align: center;
-        padding: 0.28rem 0.2rem;
-        border-radius: 6px;
-        border: 1px solid color-mix(in srgb, var(--color-text-base) 16%, transparent);
-        background: color-mix(in srgb, var(--color-widget-background) 82%, var(--color-text-base) 18%);
-        font-size: 1rem;
-        font-weight: 600;
-        color: var(--color-text-base);
-        text-decoration: none;
+      .occupied-ports-panel .ports-grid > li { list-style: none; margin: 0; min-width: 0; }
+      .occupied-ports-panel .port-chip {
+        display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+        padding: 0.5rem 0.2rem; border-radius: 6px; font-size: 1rem;
+        border: 1px solid color-mix(in srgb, var(--color-text-base) 12%, transparent);
+        background: transparent; color: var(--color-text-base); text-decoration: none;
+        font-variant-numeric: tabular-nums;
       }
-      .port-chip.public { border-color: color-mix(in srgb, #ff7b72 46%, transparent); }
-      .port-chip.tailscale { border-color: color-mix(in srgb, #6eb6ff 46%, transparent); }
-      .port-chip.private { border-color: color-mix(in srgb, #f2cc60 42%, transparent); }
-      .port-chip.loopback { border-color: color-mix(in srgb, #3fb950 42%, transparent); }
-      .port-chip.mixed { border-style: dashed; }
-      .port-chip.reserved {
-        background: color-mix(in srgb, var(--color-widget-background) 75%, var(--color-primary) 25%);
-        color: var(--color-primary);
+      .occupied-ports-panel .port-chip:hover,
+      .occupied-ports-panel .port-chip:focus-visible {
+        color: var(--color-primary); border-color: var(--color-primary);
+      }
+      .occupied-ports-panel .port-dot {
+        width: 0.35rem; height: 0.35rem; flex-shrink: 0; border-radius: 50%;
+        background: var(--color-text-subdue);
+      }
+      .occupied-ports-panel .public .port-dot { background: var(--color-negative); }
+      .occupied-ports-panel .tailscale .port-dot { background: var(--color-primary); }
+      .occupied-ports-panel .private .port-dot { background: var(--color-text-base); }
+      .occupied-ports-panel .loopback .port-dot { background: var(--color-positive); }
+      .occupied-ports-panel .mixed .port-dot {
+        background: transparent; box-shadow: 0 0 0 1px var(--color-text-base);
+      }
+      .occupied-ports-panel .port-new { animation: port-arrived 2s ease-out; }
+      @keyframes port-arrived {
+        from { background: color-mix(in srgb, var(--color-primary) 24%, transparent); }
+        to { background: transparent; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .occupied-ports-panel .port-new { animation: none; }
       }
     </style>
-    {{ if not (.JSON.Bool "ok") }}
-      <div class="color-negative size-h5">Data unavailable</div>
-      <div class="color-subdue">{{ .JSON.String "error" }}</div>
-    {{ else }}
-      <ul class="list ports-grid collapsible-container" data-collapse-after="16">
-        {{ range .JSON.Array "items" }}
-          <li>
-            <a
-              class="port-chip {{ .String "exposure_scope" }} {{ if .Bool "reserved" }}reserved{{ end }}"
-              href="{{ .String "url" }}"
-              target="_blank"
-              rel="noreferrer"
-              title="{{ .String "exposure_scope" }} · {{ .String "primary_host_ip" }}"
-            >
-              {{ .Int "port" }}
-            </a>
-          </li>
+    <div class="occupied-ports-panel">
+      {{ if not (.JSON.Bool "ok") }}
+        <div class="color-negative size-h5">Data unavailable</div>
+        <div class="color-subdue">{{ .JSON.String "error" }}</div>
+      {{ else }}
+        <div class="ports-summary">
+          <span>{{ .JSON.Int "count" }} ports</span>
+          <span title="Ports with a public or wildcard Docker bind; firewall rules may restrict access">{{ .JSON.Int "public_count" }} public</span>
+        </div>
+        <ul class="list ports-grid collapsible-container" data-collapse-after="8">
+          {{ range .JSON.Array "items" }}
+            <li>
+              <a class="port-chip {{ .String "exposure_scope" }}"
+                 href="{{ .String "url" }}" target="_blank" rel="noreferrer"
+                 title="{{ .Int "port" }} · {{ .String "exposure_scope" }} · {{ .String "primary_host_ip" }}{{ if .String "source" }} · {{ .String "source" }}{{ end }}">
+                <span class="port-dot" aria-hidden="true"></span>
+                <span>{{ .Int "port" }}</span>
+              </a>
+            </li>
+          {{ end }}
+        </ul>
+        {{ if eq (.JSON.Int "count") 0 }}
+          <div class="color-subdue size-h6">No published Docker ports</div>
         {{ end }}
-      </ul>
-    {{ end }}
+      {{ end }}
+    </div>
 ```
+
+The reusable configuration is also available in [`integrations/glance/widget.yml`](integrations/glance/widget.yml). It shows eight ports initially with a total/public count and theme-colored exposure dots. Hover a port for its bind scope and address. With the live script installed, newly detected ports briefly highlight; reduced-motion preferences disable the animation. Enable `SHOW_SOURCE=true` to include container names in tooltips.
 
 ### Automatic updates in an open Glance page
 

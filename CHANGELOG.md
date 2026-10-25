@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+- Compact Glance layout with eight initially visible ports, theme-colored exposure dots, total/public counts, and a Show all control.
+- Briefly highlight newly detected ports while respecting reduced-motion preferences.
+
+### Added
+- Reusable Glance widget configuration and an additive `public_count` API field.
+
 ## [1.2.1] - 2026-10-25
 
 ### Added

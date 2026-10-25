@@ -221,6 +221,7 @@ def _fetch_ports():
         'min_port': MIN_PORT,
         'max_port': MAX_PORT,
         'count': len(items),
+        'public_count': sum('public' in item['exposure_scopes'] for item in items),
         'items': items,
     }
 

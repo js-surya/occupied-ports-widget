@@ -301,3 +301,18 @@ def test_started_and_stopped_container_ports_follow_cache_expiry():
         assert [i['port'] for i in client.get('/ports').json['items']] == [18080]
         clock.return_value = 104
         assert client.get('/ports').json['items'] == []
+
+
+def test_public_count_includes_mixed_bindings_once():
+    _reset_cache()
+    with patch('app.requests.get') as upstream:
+        upstream.return_value.json.return_value = [{'Ports': [
+            {'IP': '0.0.0.0', 'PublicPort': 8080, 'Type': 'tcp'},
+            {'IP': '::', 'PublicPort': 8080, 'Type': 'tcp'},
+            {'IP': '127.0.0.1', 'PublicPort': 8080, 'Type': 'tcp'},
+            {'IP': '127.0.0.1', 'PublicPort': 9000, 'Type': 'tcp'},
+            {'IP': '8.8.8.8', 'PublicPort': 8081, 'Type': 'tcp'},
+        ]}]
+        payload = app.test_client().get('/ports').json
+    assert payload['count'] == 3
+    assert payload['public_count'] == 2

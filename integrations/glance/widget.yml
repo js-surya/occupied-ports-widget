@@ -1,0 +1,72 @@
+- type: custom-api
+  title: Occupied Ports
+  css-class: occupied-ports-live
+  cache: 1s
+  url: http://occupied-ports-widget:8789/ports
+  template: |
+    <style>
+      .occupied-ports-panel .ports-summary {
+        display: flex; justify-content: space-between; gap: 0.5rem;
+        margin-bottom: 0.65rem; font-size: 0.85em; color: var(--color-text-subdue);
+      }
+      .occupied-ports-panel .ports-grid {
+        display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.4rem;
+      }
+      .occupied-ports-panel .ports-grid > li { list-style: none; margin: 0; min-width: 0; }
+      .occupied-ports-panel .port-chip {
+        display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+        padding: 0.5rem 0.2rem; border-radius: 6px; font-size: 1rem;
+        border: 1px solid color-mix(in srgb, var(--color-text-base) 12%, transparent);
+        background: transparent; color: var(--color-text-base); text-decoration: none;
+        font-variant-numeric: tabular-nums;
+      }
+      .occupied-ports-panel .port-chip:hover,
+      .occupied-ports-panel .port-chip:focus-visible {
+        color: var(--color-primary); border-color: var(--color-primary);
+      }
+      .occupied-ports-panel .port-dot {
+        width: 0.35rem; height: 0.35rem; flex-shrink: 0; border-radius: 50%;
+        background: var(--color-text-subdue);
+      }
+      .occupied-ports-panel .public .port-dot { background: var(--color-negative); }
+      .occupied-ports-panel .tailscale .port-dot { background: var(--color-primary); }
+      .occupied-ports-panel .private .port-dot { background: var(--color-text-base); }
+      .occupied-ports-panel .loopback .port-dot { background: var(--color-positive); }
+      .occupied-ports-panel .mixed .port-dot {
+        background: transparent; box-shadow: 0 0 0 1px var(--color-text-base);
+      }
+      .occupied-ports-panel .port-new { animation: port-arrived 2s ease-out; }
+      @keyframes port-arrived {
+        from { background: color-mix(in srgb, var(--color-primary) 24%, transparent); }
+        to { background: transparent; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .occupied-ports-panel .port-new { animation: none; }
+      }
+    </style>
+    <div class="occupied-ports-panel">
+      {{ if not (.JSON.Bool "ok") }}
+        <div class="color-negative size-h5">Data unavailable</div>
+        <div class="color-subdue">{{ .JSON.String "error" }}</div>
+      {{ else }}
+        <div class="ports-summary">
+          <span>{{ .JSON.Int "count" }} ports</span>
+          <span title="Ports with a public or wildcard Docker bind; firewall rules may restrict access">{{ .JSON.Int "public_count" }} public</span>
+        </div>
+        <ul class="list ports-grid collapsible-container" data-collapse-after="8">
+          {{ range .JSON.Array "items" }}
+            <li>
+              <a class="port-chip {{ .String "exposure_scope" }}"
+                 href="{{ .String "url" }}" target="_blank" rel="noreferrer"
+                 title="{{ .Int "port" }} · {{ .String "exposure_scope" }} · {{ .String "primary_host_ip" }}{{ if .String "source" }} · {{ .String "source" }}{{ end }}">
+                <span class="port-dot" aria-hidden="true"></span>
+                <span>{{ .Int "port" }}</span>
+              </a>
+            </li>
+          {{ end }}
+        </ul>
+        {{ if eq (.JSON.Int "count") 0 }}
+          <div class="color-subdue size-h6">No published Docker ports</div>
+        {{ end }}
+      {{ end }}
+    </div>
