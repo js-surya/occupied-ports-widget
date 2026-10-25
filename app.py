@@ -10,7 +10,7 @@ app = Flask(__name__)
 
 DOCKER_API = os.getenv('DOCKER_API', 'http://occupied-ports-docker-proxy:2375/containers/json')
 TIMEOUT = float(os.getenv('TIMEOUT_SECONDS', '6'))
-CACHE_SECONDS = float(os.getenv('CACHE_SECONDS', '5'))
+CACHE_SECONDS = float(os.getenv('CACHE_SECONDS', '1'))
 MIN_PORT = int(os.getenv('MIN_PORT', '1'))
 MAX_PORT = int(os.getenv('MAX_PORT', '65535'))
 SORT_MODE = os.getenv('SORT_MODE', 'asc').lower()  # asc | desc | recent

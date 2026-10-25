@@ -150,7 +150,7 @@ Environment variables:
 - `PORT` (development server only, default: `8789`; Docker/Gunicorn listens on `8789`)
 - `DOCKER_API` (default: `http://occupied-ports-docker-proxy:2375/containers/json`)
 - `TIMEOUT_SECONDS` (default: `6`)
-- `CACHE_SECONDS` (default: `5`)
+- `CACHE_SECONDS` (default: `1`)
 - `MIN_PORT` / `MAX_PORT` (defaults: `1` / `65535`)
 - `SORT_MODE` (`asc` | `desc` | `recent`, default: `asc`)
 - `SHOW_SOURCE` (`true|false`, default: `false`)
@@ -277,6 +277,46 @@ is needed. If Glance runs directly on the host, use `http://127.0.0.1:8789/ports
       </ul>
     {{ end }}
 ```
+
+### Automatic updates in an open Glance page
+
+Glance `custom-api` caching alone does not refresh an open page. To make ports
+appear and disappear automatically while keeping Glance's theme, install the
+optional script tested with Glance v0.8.7:
+
+1. Copy `integrations/glance/occupied-ports-live.js` into your Glance assets directory.
+2. Add this at the top level of Glance's configuration (merge with an existing `document.head`):
+
+   ```yaml
+   document:
+     head: |
+       <script src="/assets/occupied-ports-live.js" defer></script>
+   ```
+
+3. Add these properties to the Occupied Ports `custom-api` widget:
+
+   ```yaml
+   css-class: occupied-ports-live
+   cache: 1s
+   ```
+
+Reload the browser once after setup. The script requests Glance's page-content
+endpoint every three seconds and updates only marked widgets when their content
+changes. It preserves Show more/Show less state, pauses in hidden tabs, and
+shows a retry message if refreshing fails. Requests use Glance's own origin and
+session; no helper token is exposed to the browser. Other widgets keep their
+normal cache durations, although the page-content request can refresh them on
+the server when their caches expire.
+
+The helper caches Docker data for one second by default. Under normal local
+conditions a started container's port appears, or a stopped container's port
+vanishes, within roughly 3–5 seconds. This is polling, not Docker event streaming.
+A process crash inside a still-running container does not remove a published
+binding. The widget tracks Docker bindings rather than application health.
+
+If Glance uses `server.base-url`, prefix the script's `/assets/` URL accordingly.
+This optional integration uses Glance's page-content endpoint and should be
+retested when upgrading Glance.
 
 ### Ready-made iframe widget example
 

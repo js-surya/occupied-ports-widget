@@ -23,7 +23,7 @@ services:
     mem_limit: 128m
     cpus: 0.50
     environment:
-      CACHE_SECONDS: 5
+      CACHE_SECONDS: 1
       MIN_PORT: 1
       MAX_PORT: 65535
       SORT_MODE: asc

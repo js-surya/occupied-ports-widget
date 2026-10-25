@@ -284,3 +284,20 @@ def test_recent_order_is_stable_across_refreshes():
         assert [i['port'] for i in client.get('/ports').json['items']] == [9000, 8080]
         upstream.return_value.json.return_value = [container(8080), container(9000), container(5000)]
         assert [i['port'] for i in client.get('/ports').json['items']] == [5000, 9000, 8080]
+
+
+def test_started_and_stopped_container_ports_follow_cache_expiry():
+    _reset_cache()
+    running = [{'Ports': [{'PublicPort': 18080, 'PrivatePort': 8080, 'Type': 'tcp'}]}]
+    with patch('app.requests.get') as upstream, patch.object(app_module, 'CACHE_SECONDS', 1), patch('app.time.monotonic', return_value=100) as clock:
+        upstream.return_value.json.return_value = []
+        client = app.test_client()
+        assert client.get('/ports').json['items'] == []
+        upstream.return_value.json.return_value = running
+        clock.return_value = 102
+        assert [i['port'] for i in client.get('/ports').json['items']] == [18080]
+        upstream.return_value.json.return_value = []
+        clock.return_value = 102.5
+        assert [i['port'] for i in client.get('/ports').json['items']] == [18080]
+        clock.return_value = 104
+        assert client.get('/ports').json['items'] == []
