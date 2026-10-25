@@ -25,14 +25,14 @@ def test_ports_include_scope_protocols_and_sources():
             'Names': ['/glance'],
             'Ports': [
                 {'IP': '127.0.0.1', 'PublicPort': 8088, 'PrivatePort': 8080, 'Type': 'tcp'},
-                {'IP': '100.78.209.116', 'PublicPort': 53, 'PrivatePort': 53, 'Type': 'udp'},
+                {'IP': '100.64.0.10', 'PublicPort': 53, 'PrivatePort': 53, 'Type': 'udp'},
             ],
         },
         {
             'Names': ['/pihole'],
             'Ports': [
                 {'IP': '127.0.0.1', 'PublicPort': 53, 'PrivatePort': 53, 'Type': 'tcp'},
-                {'IP': '100.78.209.116', 'PublicPort': 53, 'PrivatePort': 53, 'Type': 'tcp'},
+                {'IP': '100.64.0.10', 'PublicPort': 53, 'PrivatePort': 53, 'Type': 'tcp'},
             ],
         },
     ]
@@ -60,7 +60,7 @@ def test_ports_include_scope_protocols_and_sources():
     assert dns_item['reserved'] is True
     assert dns_item['reserved_label'] == 'DNS'
     assert dns_item['protocols'] == ['tcp', 'udp']
-    assert dns_item['host_ips'] == ['100.78.209.116', '127.0.0.1']
+    assert dns_item['host_ips'] == ['100.64.0.10', '127.0.0.1']
     assert dns_item['exposure_scope'] == 'mixed'
     assert dns_item['exposure_scopes'] == ['tailscale', 'loopback']
     assert dns_item['private_ports'] == [53]

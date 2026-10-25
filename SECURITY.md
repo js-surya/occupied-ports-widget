@@ -2,7 +2,9 @@
 
 ## Supported versions
 
-This project is currently pre-1.x and only the latest `master` branch is supported for security fixes.
+Security fixes target the latest released version and the `master` branch.
+Older releases are not maintained; upgrade to the latest release before
+reporting an issue.
 
 ## Reporting a vulnerability
 

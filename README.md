@@ -40,7 +40,7 @@ It is useful when you are about to deploy a new service and want a quick, human-
 
 ## API shape
 
-Example `GET /ports` response:
+Example `GET /ports` response (addresses and container names are illustrative):
 
 ```json
 {
@@ -58,8 +58,8 @@ Example `GET /ports` response:
       "url": "https://example.com:53",
       "reserved": true,
       "reserved_label": "DNS",
-      "primary_host_ip": "100.78.209.116",
-      "host_ips": ["100.78.209.116", "127.0.0.1"],
+      "primary_host_ip": "100.64.0.10",
+      "host_ips": ["100.64.0.10", "127.0.0.1"],
       "exposure_scope": "mixed",
       "exposure_scopes": ["tailscale", "loopback"],
       "private_ports": [53],
