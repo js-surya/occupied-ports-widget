@@ -2,13 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [1.2.1] - 2026-10-25
 
 ### Added
 - Optional Glance script to refresh port widgets automatically every three seconds, preserving collapse state and indicating refresh failures.
 
 ### Changed
 - Default Docker discovery cache reduced from five seconds to one second for quicker start/stop updates.
+
+### Fixed
+- Replaced deployment-specific addresses in README examples and tests with illustrative values.
+- Corrected the security policy to describe support for released versions.
 
 ## [1.2.0] - 2026-10-25
 

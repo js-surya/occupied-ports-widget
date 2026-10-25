@@ -429,7 +429,7 @@ docker build -t occupied-ports-widget:local .
 
 ```bash
 git pull --ff-only
-git checkout v1.2.0
+git checkout v1.2.1
 docker compose up -d --build
 ```
 
