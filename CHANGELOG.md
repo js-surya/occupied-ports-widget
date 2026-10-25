@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [1.3.0] - 2026-10-25
 
 ### Changed
 - Compact Glance layout with eight initially visible ports, theme-colored exposure dots, total/public counts, and a Show all control.

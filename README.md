@@ -310,7 +310,7 @@ optional script tested with Glance v0.8.7:
    ```yaml
    document:
      head: |
-       <script src="/assets/occupied-ports-live.js" defer></script>
+       <script src="/assets/occupied-ports-live.js?v=1.3.0" defer></script>
    ```
 
 3. Add these properties to the Occupied Ports `custom-api` widget:
@@ -449,9 +449,15 @@ docker build -t occupied-ports-widget:local .
 
 ```bash
 git pull --ff-only
-git checkout v1.2.1
+git checkout v1.3.0
 docker compose up -d --build
 ```
+
+For the compact Glance design, also update your ports widget from
+[`integrations/glance/widget.yml`](integrations/glance/widget.yml), keeping your
+existing API URL and auth headers. Copy the updated live script into Glance
+assets and reload the browser; use a version query such as `?v=1.3.0` on its
+script URL to refresh cached copies.
 
 Keep your local Compose overrides. Verify `/health` and `/ports` after upgrading;
 `/health` checks the process only, while `/ports` reports Docker API errors via
