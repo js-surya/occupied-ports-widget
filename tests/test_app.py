@@ -215,3 +215,72 @@ def test_widget_rate_limit():
     assert response_one.status_code == 200
     assert response_two.status_code == 429
     assert 'Rate limit exceeded' in response_two.get_data(as_text=True)
+
+
+def test_widget_frame_policy_and_api_headers():
+    with patch.object(app_module, 'FRAME_ANCESTORS', 'https://glance.example.com'), patch.object(app_module, '_get_payload', return_value={'ok': True, 'items': [], 'count': 0}):
+        client = app.test_client()
+        response = client.get('/widget')
+        assert response.headers['Content-Security-Policy'] == 'frame-ancestors https://glance.example.com'
+        assert 'X-Frame-Options' not in response.headers
+        assert client.get('/health').headers['X-Frame-Options'] == 'DENY'
+
+
+def test_upstream_error_is_sanitized_and_cached():
+    _reset_cache()
+    with patch('app.requests.get', side_effect=RuntimeError('secret upstream detail')) as upstream, patch.object(app_module, 'DEBUG_ERRORS', False), patch.object(app_module, 'CACHE_SECONDS', 60):
+        client = app.test_client()
+        first = client.get('/ports').json
+        second = client.get('/ports').json
+    assert first == second
+    assert first['ok'] is False
+    assert first['error'] == 'temporarily unavailable'
+    assert first['items'] == []
+    assert upstream.call_count == 1
+
+
+def test_concurrent_requests_share_one_cache_refresh():
+    from concurrent.futures import ThreadPoolExecutor
+    import time
+
+    _reset_cache()
+    def fetch():
+        time.sleep(0.02)
+        return {'ok': True, 'items': [], 'count': 0}
+
+    with patch.object(app_module, '_fetch_ports', side_effect=fetch) as upstream, patch.object(app_module, 'CACHE_SECONDS', 60):
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results = list(pool.map(lambda _: app_module._get_payload(), range(8)))
+    assert all(result['ok'] for result in results)
+    assert upstream.call_count == 1
+
+
+def test_old_rate_limit_entries_expire():
+    _reset_cache()
+    app_module._RATE['old-client'] = {'window': -1, 'count': 120}
+    with app.test_request_context('/ports'):
+        assert app_module._check_rate_limit()
+    assert 'old-client' not in app_module._RATE
+
+
+def test_empty_docker_response_is_success():
+    _reset_cache()
+    with patch('app.requests.get') as upstream:
+        upstream.return_value.json.return_value = []
+        payload = app.test_client().get('/ports').json
+    assert payload['ok'] is True
+    assert payload['count'] == 0
+    assert payload['items'] == []
+
+
+def test_recent_order_is_stable_across_refreshes():
+    _reset_cache()
+    def container(port):
+        return {'Ports': [{'PublicPort': port, 'Type': 'tcp'}]}
+
+    with patch('app.requests.get') as upstream, patch.object(app_module, 'SORT_MODE', 'recent'), patch.object(app_module, 'CACHE_SECONDS', 0):
+        upstream.return_value.json.return_value = [container(8080), container(9000)]
+        client = app.test_client()
+        assert [i['port'] for i in client.get('/ports').json['items']] == [9000, 8080]
+        upstream.return_value.json.return_value = [container(8080), container(9000), container(5000)]
+        assert [i['port'] for i in client.get('/ports').json['items']] == [5000, 9000, 8080]

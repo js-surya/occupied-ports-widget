@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-10-25
+
+### Added
+- Configurable `FRAME_ANCESTORS` policy for embedding the HTML widget.
+- Regression coverage for cache concurrency, upstream failures, iframe policy, and polling.
+
+### Fixed
+- Widget framing no longer blocked by an unconditional `X-Frame-Options: DENY`.
+- Polling preserves expanded/collapsed state and reverse-proxy URL prefixes.
+- Serialize cache refreshes and use one threaded Gunicorn worker for consistent recent ordering.
+- Expire inactive rate-limit entries when the minute window changes.
+- README documents working Docker networking, browser iframe URLs, authenticated polling, and discovery limits.
+
 ## [1.1.0] - 2026-06-22
 
 ### Added

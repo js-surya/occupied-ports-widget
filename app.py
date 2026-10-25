@@ -17,6 +17,7 @@ SORT_MODE = os.getenv('SORT_MODE', 'asc').lower()  # asc | desc | recent
 SHOW_SOURCE = os.getenv('SHOW_SOURCE', 'false').lower() == 'true'
 LINK_SCHEME = os.getenv('LINK_SCHEME', 'http')
 LINK_HOST = os.getenv('LINK_HOST', 'localhost')
+FRAME_ANCESTORS = os.getenv('FRAME_ANCESTORS', "'self'")
 
 AUTH_ENABLED = os.getenv('AUTH_ENABLED', 'false').lower() == 'true'
 WIDGET_TOKEN = os.getenv('WIDGET_TOKEN', '')
@@ -37,6 +38,7 @@ RESERVED_PORTS = {
 }
 
 _CACHE = {'ts': 0.0, 'payload': None}
+_CACHE_LOCK = threading.Lock()
 _PORT_FIRST_SEEN = {}
 _SEQ = 0
 
@@ -66,6 +68,9 @@ def _check_rate_limit():
     window = now // 60
 
     with _RATE_LOCK:
+        for client, state in list(_RATE.items()):
+            if state['window'] != window:
+                del _RATE[client]
         entry = _RATE.get(ip)
         if not entry or entry['window'] != window:
             _RATE[ip] = {'window': window, 'count': 1}
@@ -223,13 +228,22 @@ def _fetch_ports():
 @app.after_request
 def set_security_headers(resp):
     resp.headers['X-Content-Type-Options'] = 'nosniff'
-    resp.headers['X-Frame-Options'] = 'DENY'
+    if request.endpoint == 'widget':
+        resp.headers['Content-Security-Policy'] = f'frame-ancestors {FRAME_ANCESTORS}'
+    else:
+        resp.headers['X-Frame-Options'] = 'DENY'
     resp.headers['Referrer-Policy'] = 'no-referrer'
     return resp
 
 
 def _get_payload():
-    now = time.time()
+    # Serialize refreshes so threaded requests share a consistent cache and order.
+    with _CACHE_LOCK:
+        return _get_payload_locked()
+
+
+def _get_payload_locked():
+    now = time.monotonic()
     if _CACHE['payload'] is not None and (now - _CACHE['ts']) < CACHE_SECONDS:
         return _CACHE['payload']
 
@@ -401,7 +415,9 @@ def widget():
             return `<a class="port-chip ${scope}${reserved}" href="${escapeHtml(i.url)}" title="${escapeHtml(title)}" target="_blank" rel="noreferrer">${escapeHtml(i.port)}</a>`;
           }).join('');
 
-          const openAttr = items.length <= 16 ? ' open' : '';
+          const previous = root.querySelector('details');
+          const isOpen = previous ? previous.open : items.length <= 16;
+          const openAttr = isOpen ? ' open' : '';
           root.innerHTML = `
             <details class="ports-collapse"${openAttr}>
               <summary class="toggle">${escapeHtml(payload.count)} ports · sorted ${escapeHtml(payload.sort_mode)} · range ${escapeHtml(payload.min_port)}-${escapeHtml(payload.max_port)}</summary>
@@ -419,7 +435,7 @@ def widget():
 
         async function refreshPorts() {
           try {
-            const res = await fetch('/ports', { cache: 'no-store' });
+            const res = await fetch(new URL('ports', window.location.href), { cache: 'no-store' });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const payload = await res.json();
             renderPayload(payload);

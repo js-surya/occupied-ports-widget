@@ -26,10 +26,11 @@ It is useful when you are about to deploy a new service and want a quick, human-
   - `exposure_scopes`
   - `private_ports`
 - Optional source-container reporting with `SHOW_SOURCE=true`
-- Sorting modes: `asc`, `desc`, `recent`
+- Sorting modes: `asc`, `desc`, `recent` (`recent` means first observed by this process; resets on restart)
 - Port range filter (`MIN_PORT`, `MAX_PORT`)
 - Reserved port hints in payload (for example `22`, `53`, `80`, `443`)
 - Clickable links per port (`LINK_SCHEME://LINK_HOST:port`)
+- Discovers Docker published ports only; host-network containers and non-Docker listeners are not included
 - JSON API (`/ports`) and ready-made HTML widget (`/widget`)
 - Optional token auth and rate limiting for safer public use
 - Production-oriented runtime (Gunicorn, non-root user, healthcheck)
@@ -85,7 +86,7 @@ Example `GET /ports` response:
 
 ### Exposure scope meanings
 
-- `public` → bound to `0.0.0.0` / `::`
+- `public` → bound to `0.0.0.0` / `::` or a public IP; this describes the bind address, not firewall/NAT reachability
 - `tailscale` → bound to Tailscale address range
 - `private` → bound to RFC1918/private non-loopback address
 - `loopback` → bound to `127.0.0.1` / `::1`
@@ -146,7 +147,7 @@ docker compose up -d --build
 
 Environment variables:
 
-- `PORT` (default: `8789`)
+- `PORT` (development server only, default: `8789`; Docker/Gunicorn listens on `8789`)
 - `DOCKER_API` (default: `http://occupied-ports-docker-proxy:2375/containers/json`)
 - `TIMEOUT_SECONDS` (default: `6`)
 - `CACHE_SECONDS` (default: `5`)
@@ -160,6 +161,7 @@ Environment variables:
 - `RATE_LIMIT_PER_MINUTE` (default: `120`)
 - `DEBUG_ERRORS` (`true|false`, default: `false`)
 - `TRUST_PROXY` (`true|false`, default: `false`)
+- `FRAME_ANCESTORS` (default: `'self'`; space-separated origins permitted to embed `/widget`)
 
 ### Most useful options
 
@@ -172,13 +174,40 @@ Environment variables:
 
 ## Glance examples
 
+For containerized Glance, the default loopback bind is not reachable through
+`host.docker.internal`. A portable option is a shared Docker network:
+
+```bash
+docker network create glance-ports
+```
+
+Add this to an override for **each** Compose project (use `glance` as the service
+name in the Glance project and `occupied-ports-widget` in this project):
+
+```yaml
+services:
+  occupied-ports-widget:
+    networks:
+      - default
+      - glance-ports
+networks:
+  glance-ports:
+    external: true
+```
+
+Recreate both services after configuring the network. Keep the Docker socket
+proxy on this project's default network only. The `custom-api` examples below
+use the widget's service name on the shared network. No extra host port bind
+is needed. If Glance runs directly on the host, use `http://127.0.0.1:8789/ports`.
+
+
 ### Minimal `custom-api` example
 
 ```yaml
 - type: custom-api
   title: Occupied Ports
   cache: 10s
-  url: http://host.docker.internal:8789/ports
+  url: http://occupied-ports-widget:8789/ports
   template: |
     <ul class="list">
       {{ range .JSON.Array "items" }}
@@ -193,7 +222,7 @@ Environment variables:
 - type: custom-api
   title: Occupied Ports
   cache: 15s
-  url: http://host.docker.internal:8789/ports
+  url: http://occupied-ports-widget:8789/ports
   template: |
     <style>
       .ports-grid {
@@ -256,11 +285,29 @@ If you prefer using the built-in HTML widget instead of writing a template:
 ```yaml
 - type: iframe
   title: Occupied Ports
-  source: http://host.docker.internal:8789/widget
+  source: https://ports.example.com/widget
   height: 220
 ```
 
-> If `host.docker.internal` is not reachable in your setup, replace it with a host address reachable from inside the Glance container.
+The iframe URL must be reachable by the **browser**, not just the Glance
+container. Replace `ports.example.com` with your helper's HTTPS reverse proxy
+address. Configure the helper with `FRAME_ANCESTORS: "https://glance.example.com"`
+using the exact Glance origin (including port if nonstandard). The default
+`'self'` permits embedding only from the helper's own origin.
+
+When auth is enabled, a browser iframe cannot set `X-Widget-Token`. Use an
+access-controlled reverse proxy that injects the token for both `/widget` and
+`/ports`; polling requests need the header too. The proxy must preserve these
+sibling paths, including when serving under a URL prefix. Never put the token
+in the iframe URL. For `custom-api`, set the header in the widget config:
+
+```yaml
+headers:
+  X-Widget-Token: ${OCCUPIED_PORTS_TOKEN}
+```
+
+Define `OCCUPIED_PORTS_TOKEN` in the Glance container environment and match it to
+the helper's `WIDGET_TOKEN`.
 
 ---
 
@@ -301,7 +348,7 @@ environment:
   RATE_LIMIT_PER_MINUTE: 30
   DEBUG_ERRORS: false
   TRUST_PROXY: true
-  SHOW_SOURCE: true
+  SHOW_SOURCE: false
 ports:
   - "127.0.0.1:8789:8789"
 ```
@@ -325,7 +372,9 @@ If your reverse proxy supports it, have it send `X-Widget-Token` to the upstream
 Run tests locally:
 
 ```bash
-pytest -q
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt pytest
+.venv/bin/python -m pytest -q
 ```
 
 Build test:
@@ -335,6 +384,18 @@ docker build -t occupied-ports-widget:local .
 ```
 
 ---
+
+## Upgrade
+
+```bash
+git pull --ff-only
+git checkout v1.2.0
+docker compose up -d --build
+```
+
+Keep your local Compose overrides. Verify `/health` and `/ports` after upgrading;
+`/health` checks the process only, while `/ports` reports Docker API errors via
+`ok: false`. A successful empty result has `ok: true` and `count: 0`.
 
 ## Changelog
 
